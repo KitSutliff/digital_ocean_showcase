@@ -1,0 +1,22 @@
+# Binaries
+package-indexer
+server
+*.exe
+
+# Go build artifacts
+*.so
+*.dylib
+*.test
+*.out
+
+# Dependencies
+vendor/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
