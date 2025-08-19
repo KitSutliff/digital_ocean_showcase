@@ -21,18 +21,18 @@ var (
 	lineMatcher, _ = regexp.Compile(LineFormat)
 )
 
-//Package represents a package and its dependencies
+// Package represents a package and its dependencies
 type Package struct {
 	Name         string
 	Dependencies []*Package
 }
 
-//AddDependency makes this package depend on some other
+// AddDependency makes this package depend on some other
 func (pkg *Package) AddDependency(to *Package) {
 	pkg.Dependencies = append(pkg.Dependencies, to)
 }
 
-//AllPackages is a repository for all known packages
+// AllPackages is a repository for all known packages
 type AllPackages struct {
 	//All packages we know of
 	Packages []*Package
@@ -154,7 +154,7 @@ func BrewToPackages(allPackages *AllPackages) (*AllPackages, error) {
 	return pkgs, nil
 }
 
-//SegmentListPackages breaks a list of packages in N segments,
+// SegmentListPackages breaks a list of packages in N segments,
 // where N <= maxNumberOfSegments
 func SegmentListPackages(fullList []*Package, maxNumberOfSegments int) [][]*Package {
 	fullListSize := len(fullList)

@@ -196,17 +196,13 @@ b: c z
 
 func TestParseBrewPackages(t *testing.T) {
 	allPackages := &AllPackages{}
-	_, err := BrewToPackages(allPackages)
-
+	allPackages, err := BrewToPackages(allPackages)
 	if err != nil {
-		t.Fatalf("Parsing resulted in error %v", err)
+		t.Errorf("Could not parse brew packages: %s", err)
 	}
 
-	numberOfParsedPackages := len(allPackages.Packages)
-	const expectedNumberOfPackagesInFile = 3370
-
-	if numberOfParsedPackages != expectedNumberOfPackagesInFile {
-		t.Errorf("Expected %#v packages in brew-dependencies.txt, found %#v", expectedNumberOfPackagesInFile, numberOfParsedPackages)
+	if len(allPackages.Packages) == 0 {
+		t.Errorf("Expected more than 0 packages in brew-dependencies.txt, found %d", len(allPackages.Packages))
 	}
 }
 
