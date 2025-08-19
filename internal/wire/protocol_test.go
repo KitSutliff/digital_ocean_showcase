@@ -108,6 +108,7 @@ func TestResponse_String(t *testing.T) {
 		{OK, "OK\n"},
 		{FAIL, "FAIL\n"},
 		{ERROR, "ERROR\n"},
+		{Response(999), "ERROR\n"}, // Test default case
 	}
 	
 	for _, test := range tests {
@@ -115,5 +116,44 @@ func TestResponse_String(t *testing.T) {
 		if result != test.expected {
 			t.Errorf("Response(%v).String() = %q, expected %q", test.response, result, test.expected)
 		}
+	}
+}
+
+func TestCommandType_String(t *testing.T) {
+	tests := []struct {
+		cmdType  CommandType
+		expected string
+	}{
+		{IndexCommand, "INDEX"},
+		{RemoveCommand, "REMOVE"},
+		{QueryCommand, "QUERY"},
+		{CommandType(999), "UNKNOWN"}, // Test default case
+	}
+	
+	for _, test := range tests {
+		result := test.cmdType.String()
+		if result != test.expected {
+			t.Errorf("CommandType(%v).String() = %q, expected %q", test.cmdType, result, test.expected)
+		}
+	}
+}
+
+func TestValidateCommand(t *testing.T) {
+	// Test ValidateCommand function (which currently does nothing but needs coverage)
+	cmd := &Command{
+		Type:         IndexCommand,
+		Package:      "test",
+		Dependencies: []string{"dep1"},
+	}
+	
+	err := ValidateCommand(cmd)
+	if err != nil {
+		t.Errorf("ValidateCommand should return nil, got: %v", err)
+	}
+	
+	// Test with nil command
+	err = ValidateCommand(nil)
+	if err != nil {
+		t.Errorf("ValidateCommand with nil should return nil, got: %v", err)
 	}
 }
