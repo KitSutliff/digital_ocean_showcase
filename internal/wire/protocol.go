@@ -9,28 +9,22 @@ import (
 	"strings"
 )
 
-// Command represents a parsed client command with validated structure and semantics.
-// Design decision: Separate parsing from execution to enable comprehensive validation
-// and clear error reporting for operational debugging and monitoring.
+// Command represents a parsed client command
 type Command struct {
 	Type         CommandType
 	Package      string
 	Dependencies []string
 }
 
-// CommandType represents the type of command using type-safe enumeration.
-// This approach eliminates string comparison errors and enables efficient switch
-// statements in performance-critical connection processing code paths.
+// CommandType represents the type of command
 type CommandType int
 
-// Command type enumeration for type-safe command processing
 const (
 	IndexCommand CommandType = iota
 	RemoveCommand
 	QueryCommand
 )
 
-// Command string constants for protocol parsing and logging
 const (
 	cmdIndexStr   = "INDEX"
 	cmdRemoveStr  = "REMOVE"
@@ -38,8 +32,7 @@ const (
 	cmdUnknownStr = "UNKNOWN"
 )
 
-// String returns the string representation of a command type for logging and debugging.
-// Provides human-readable output for operational monitoring and error diagnostics.
+// String returns the string representation of a command type
 func (ct CommandType) String() string {
 	switch ct {
 	case IndexCommand:
@@ -53,9 +46,7 @@ func (ct CommandType) String() string {
 	}
 }
 
-// Response represents server response codes using enumerated constants.
-// Protocol compliance: Exact specification matching for OK/FAIL/ERROR responses
-// ensures compatibility with external validation systems and test harnesses.
+// Response represents server response codes
 type Response int
 
 // Response enumeration for type-safe response handling
@@ -96,7 +87,7 @@ func (r Response) String() string {
 // Validation strategy: Strict specification compliance prevents false negatives with
 // external test harnesses while ensuring robust protocol handling in production.
 func ParseCommand(line string) (*Command, error) {
-	// Must end with newline (GPT-5's explicit check)
+	// Must end with newline per protocol specification
 	if !strings.HasSuffix(line, "\n") {
 		return nil, fmt.Errorf("line must end with newline")
 	}

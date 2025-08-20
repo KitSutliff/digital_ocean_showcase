@@ -103,7 +103,9 @@ func (s *Server) handleConnection(conn net.Conn) {
 	s.serveConn(s.ctx, conn)
 }
 
-// serveConn contains the core connection processing loop
+// serveConn contains the core connection processing loop.
+// It enforces newline framing, resets a read deadline before each read,
+// and exits gracefully on context cancellation or client disconnect.
 func (s *Server) serveConn(ctx context.Context, conn net.Conn) {
 	clientAddr := conn.RemoteAddr().String()
 	log.Printf("Client connected: %s", clientAddr)
