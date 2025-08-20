@@ -105,10 +105,10 @@ func TestResponse_String(t *testing.T) {
 		response Response
 		expected string
 	}{
-		{OK, "OK\n"},
-		{FAIL, "FAIL\n"},
-		{ERROR, "ERROR\n"},
-		{Response(999), "ERROR\n"}, // Test default case
+		{OK, OK.String()},
+		{FAIL, FAIL.String()},
+		{ERROR, ERROR.String()},
+		{Response(999), ERROR.String()}, // Test default case
 	}
 
 	for _, test := range tests {

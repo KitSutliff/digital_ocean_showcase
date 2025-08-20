@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"package-indexer/internal/server"
+	"package-indexer/internal/wire"
 )
 
 // testClient represents a test client connection
@@ -80,7 +81,7 @@ func TestServer_BasicOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to send INDEX command: %v", err)
 	}
-	if resp != "OK\n" {
+	if resp != wire.OK.String() {
 		t.Errorf("Expected OK response, got: %q", resp)
 	}
 
@@ -89,7 +90,7 @@ func TestServer_BasicOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to send QUERY command: %v", err)
 	}
-	if resp != "OK\n" {
+	if resp != wire.OK.String() {
 		t.Errorf("Expected OK response for indexed package, got: %q", resp)
 	}
 
@@ -98,7 +99,7 @@ func TestServer_BasicOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to send INDEX command: %v", err)
 	}
-	if resp != "OK\n" {
+	if resp != wire.OK.String() {
 		t.Errorf("Expected OK response for valid dependencies, got: %q", resp)
 	}
 
@@ -107,7 +108,7 @@ func TestServer_BasicOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to send INDEX command: %v", err)
 	}
-	if resp != "FAIL\n" {
+	if resp != wire.FAIL.String() {
 		t.Errorf("Expected FAIL response for missing dependencies, got: %q", resp)
 	}
 
@@ -116,7 +117,7 @@ func TestServer_BasicOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to send REMOVE command: %v", err)
 	}
-	if resp != "FAIL\n" {
+	if resp != wire.FAIL.String() {
 		t.Errorf("Expected FAIL response for package with dependents, got: %q", resp)
 	}
 
@@ -125,7 +126,7 @@ func TestServer_BasicOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to send REMOVE command: %v", err)
 	}
-	if resp != "OK\n" {
+	if resp != wire.OK.String() {
 		t.Errorf("Expected OK response for valid removal, got: %q", resp)
 	}
 }
@@ -156,7 +157,7 @@ func TestServer_ProtocolErrors(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to send command %q: %v", cmd, err)
 		}
-		if resp != "ERROR\n" {
+		if resp != wire.ERROR.String() {
 			t.Errorf("Expected ERROR response for malformed command %q, got: %q", cmd, resp)
 		}
 	}
@@ -192,7 +193,7 @@ func TestServer_ConcurrentClients(t *testing.T) {
 				results <- fmt.Errorf("client %d: INDEX failed: %v", clientID, err)
 				return
 			}
-			if resp != "OK\n" {
+			if resp != wire.OK.String() {
 				results <- fmt.Errorf("client %d: expected OK for INDEX, got: %q", clientID, resp)
 				return
 			}
@@ -203,7 +204,7 @@ func TestServer_ConcurrentClients(t *testing.T) {
 				results <- fmt.Errorf("client %d: QUERY failed: %v", clientID, err)
 				return
 			}
-			if resp != "OK\n" {
+			if resp != wire.OK.String() {
 				results <- fmt.Errorf("client %d: expected OK for QUERY, got: %q", clientID, resp)
 				return
 			}
@@ -214,7 +215,7 @@ func TestServer_ConcurrentClients(t *testing.T) {
 				results <- fmt.Errorf("client %d: REMOVE failed: %v", clientID, err)
 				return
 			}
-			if resp != "OK\n" {
+			if resp != wire.OK.String() {
 				results <- fmt.Errorf("client %d: expected OK for REMOVE, got: %q", clientID, resp)
 				return
 			}

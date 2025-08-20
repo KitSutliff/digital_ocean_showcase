@@ -43,7 +43,7 @@ func TestHandleConnection_ProcessAndShutdown(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to read response: %v", err)
 	}
-	if resp != "OK\n" {
+	if resp != wire.OK.String() {
 		t.Fatalf("expected OK, got %q", resp)
 	}
 
@@ -89,7 +89,7 @@ func TestStartWithContext_GracefulShutdown(t *testing.T) {
 	}
 	if resp, err := bufio.NewReader(conn).ReadString('\n'); err != nil {
 		t.Fatalf("failed to read response: %v", err)
-	} else if resp != "FAIL\n" {
+	} else if resp != wire.FAIL.String() {
 		t.Fatalf("expected FAIL response, got %q", resp)
 	}
 

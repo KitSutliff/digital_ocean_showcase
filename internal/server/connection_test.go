@@ -11,6 +11,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"package-indexer/internal/wire"
 )
 
 // setupServerAndPipe creates a server, a piped client/server connection, starts
@@ -45,10 +47,10 @@ func TestServer_HandleConnection_Lifecycle(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"INDEX|test|\n", "OK\n"},
-		{"QUERY|test|\n", "OK\n"},
-		{"REMOVE|test|\n", "OK\n"},
-		{"INVALID|test|\n", "ERROR\n"},
+		{"INDEX|test|\n", wire.OK.String()},
+		{"QUERY|test|\n", wire.OK.String()},
+		{"REMOVE|test|\n", wire.OK.String()},
+		{"INVALID|test|\n", wire.ERROR.String()},
 	}
 
 	for _, cmd := range commands {
@@ -163,7 +165,7 @@ func TestServer_HandleConnection_LargeMessage(t *testing.T) {
 	}
 
 	// Should get FAIL because deps don't exist, but shouldn't crash
-	if response != "FAIL\n" {
+	if response != wire.FAIL.String() {
 		t.Errorf("Expected FAIL for missing dependencies, got %q", response)
 	}
 }
@@ -206,7 +208,7 @@ func TestServer_HandleConnection_ConcurrentConnections(t *testing.T) {
 				return
 			}
 
-			if response != "OK\n" {
+			if response != wire.OK.String() {
 				t.Errorf("Connection %d: expected OK, got %q", id, response)
 			}
 
@@ -258,7 +260,7 @@ func TestServer_HandleConnection_MalformedMessages(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to read response for malformed message %q: %v", msg, err)
 			}
-			if response != "ERROR\n" {
+			if response != wire.ERROR.String() {
 				t.Errorf("Malformed message %q: expected ERROR, got %q", msg, response)
 			}
 
@@ -274,7 +276,7 @@ func TestServer_HandleConnection_MalformedMessages(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to read response for malformed message %q: %v", msg, err)
 			}
-			if response != "ERROR\n" {
+			if response != wire.ERROR.String() {
 				t.Errorf("Malformed message %q: expected ERROR, got %q", msg, response)
 			}
 		}
@@ -378,12 +380,12 @@ func TestServer_HandleConnection_StreamingCommands(t *testing.T) {
 		cmd      string
 		expected string
 	}{
-		{"INDEX|base|\n", "OK\n"},
-		{"INDEX|app|base\n", "OK\n"},
-		{"QUERY|base|\n", "OK\n"},
-		{"QUERY|app|\n", "OK\n"},
-		{"REMOVE|app|\n", "OK\n"},
-		{"REMOVE|base|\n", "OK\n"},
+		{"INDEX|base|\n", wire.OK.String()},
+		{"INDEX|app|base\n", wire.OK.String()},
+		{"QUERY|base|\n", wire.OK.String()},
+		{"QUERY|app|\n", wire.OK.String()},
+		{"REMOVE|app|\n", wire.OK.String()},
+		{"REMOVE|base|\n", wire.OK.String()},
 	}
 
 	for i, test := range commands {
