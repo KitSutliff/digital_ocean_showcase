@@ -74,7 +74,7 @@ echo "QUERY|test|" | nc localhost 8080  # Returns "OK"
 # Run all tests with race detection
 make test
 
-# Run tests with coverage
+# Run tests with coverage (generates coverage.out, coverage.html)
 make test-coverage
 
 # Build binary
@@ -91,6 +91,11 @@ make harness-docker
 
 # Clean artifacts
 make clean
+
+# Development helpers
+make fmt          # Format code
+make deps         # Tidy dependencies
+make test-all     # Run all tests including test-suite
 ```
 
 ### Testing
@@ -111,8 +116,11 @@ go test -race ./...
 # Official test harness (local binary)
 make harness
 
-# Stress testing
+# Stress testing with multiple concurrency levels
 cd testing/scripts && ./stress_test.sh
+
+# Complete verification (unit tests + integration + harness + stress)
+cd testing/scripts && ./final_verification.sh
 ```
 
 #### Production Testing (Docker)
@@ -167,6 +175,9 @@ cd testing/scripts && HARNESS_BIN=../harness/do-package-tree_darwin ./run_harnes
 
 # Run official test harness at maximum concurrency (Docker - production environment)
 cd testing/scripts && HARNESS_BIN=../harness/do-package-tree_darwin ./run_harness_docker.sh -concurrency=100 -seed=42
+
+# Run comprehensive stress test (1, 10, 25, 50, 100 concurrent clients with multiple seeds)
+cd testing/scripts && ./stress_test.sh
 ```
 
 ## Production Considerations
@@ -174,7 +185,7 @@ cd testing/scripts && HARNESS_BIN=../harness/do-package-tree_darwin ./run_harnes
 - **Security**: Runs as non-root user in Docker
 - **Health Checks**: Docker health check via netcat TCP probe (`nc -z localhost 8080`)
 - **Testing**: Dual testing approach validates both development and production environments
-- **Containerization**: Multi-stage builds produce lean 23MB Alpine images  
+- **Containerization**: Multi-stage builds with Ubuntu base (as required by challenge)  
 - **Monitoring**: Basic logging with connection lifecycle events
 - **Resource Usage**: Minimal memory footprint, efficient O(1) operations
 
