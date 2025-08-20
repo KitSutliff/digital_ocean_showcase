@@ -1,5 +1,5 @@
 # Multi-stage build for efficiency
-FROM golang:1.22-alpine AS builder
+FROM golang:1.22 AS builder
 
 WORKDIR /app
 COPY go.mod ./
@@ -11,13 +11,14 @@ COPY . .
 # Build binary
 RUN go build -o package-indexer ./app/cmd/server
 
-# Production image
-FROM alpine:latest
+# Production image - using Ubuntu as required by challenge
+FROM ubuntu:latest
 
 # Install netcat for healthcheck and set up non-root user
-RUN apk add --no-cache netcat-openbsd && \
-    addgroup -g 1001 appgroup && \
-    adduser -u 1001 -G appgroup -s /bin/sh -D appuser
+RUN apt-get update && apt-get install -y netcat-openbsd && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* && \
+    groupadd -g 1001 appgroup && \
+    useradd -u 1001 -g appgroup -s /bin/bash appuser
 
 WORKDIR /app
 COPY --from=builder /app/package-indexer .
