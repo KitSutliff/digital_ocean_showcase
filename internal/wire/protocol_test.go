@@ -50,31 +50,31 @@ func TestParseCommand_ValidCases(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, test := range tests {
 		cmd, err := ParseCommand(test.input)
 		if err != nil {
 			t.Errorf("ParseCommand(%q) returned error: %v", test.input, err)
 			continue
 		}
-		
+
 		if cmd.Type != test.expected.Type {
 			t.Errorf("ParseCommand(%q) Type = %v, expected %v", test.input, cmd.Type, test.expected.Type)
 		}
-		
+
 		if cmd.Package != test.expected.Package {
 			t.Errorf("ParseCommand(%q) Package = %q, expected %q", test.input, cmd.Package, test.expected.Package)
 		}
-		
+
 		if len(cmd.Dependencies) != len(test.expected.Dependencies) {
-			t.Errorf("ParseCommand(%q) Dependencies length = %d, expected %d", 
+			t.Errorf("ParseCommand(%q) Dependencies length = %d, expected %d",
 				test.input, len(cmd.Dependencies), len(test.expected.Dependencies))
 			continue
 		}
-		
+
 		for i, dep := range cmd.Dependencies {
 			if dep != test.expected.Dependencies[i] {
-				t.Errorf("ParseCommand(%q) Dependencies[%d] = %q, expected %q", 
+				t.Errorf("ParseCommand(%q) Dependencies[%d] = %q, expected %q",
 					test.input, i, dep, test.expected.Dependencies[i])
 			}
 		}
@@ -83,15 +83,15 @@ func TestParseCommand_ValidCases(t *testing.T) {
 
 func TestParseCommand_ErrorCases(t *testing.T) {
 	errorCases := []string{
-		"INVALID|package|\n",     // Invalid command
-		"INDEX||\n",              // Empty package name
-		"INDEX\n",                // Missing parts
-		"INDEX|package\n",        // Missing third part
+		"INVALID|package|\n",         // Invalid command
+		"INDEX||\n",                  // Empty package name
+		"INDEX\n",                    // Missing parts
+		"INDEX|package\n",            // Missing third part
 		"INDEX|package|deps|extra\n", // Too many parts
-		"",                       // Empty line
-		"INDEX|package|deps",     // Missing newline
+		"",                           // Empty line
+		"INDEX|package|deps",         // Missing newline
 	}
-	
+
 	for _, input := range errorCases {
 		_, err := ParseCommand(input)
 		if err == nil {
@@ -110,7 +110,7 @@ func TestResponse_String(t *testing.T) {
 		{ERROR, "ERROR\n"},
 		{Response(999), "ERROR\n"}, // Test default case
 	}
-	
+
 	for _, test := range tests {
 		result := test.response.String()
 		if result != test.expected {
@@ -129,31 +129,11 @@ func TestCommandType_String(t *testing.T) {
 		{QueryCommand, "QUERY"},
 		{CommandType(999), "UNKNOWN"}, // Test default case
 	}
-	
+
 	for _, test := range tests {
 		result := test.cmdType.String()
 		if result != test.expected {
 			t.Errorf("CommandType(%v).String() = %q, expected %q", test.cmdType, result, test.expected)
 		}
-	}
-}
-
-func TestValidateCommand(t *testing.T) {
-	// Test ValidateCommand function (which currently does nothing but needs coverage)
-	cmd := &Command{
-		Type:         IndexCommand,
-		Package:      "test",
-		Dependencies: []string{"dep1"},
-	}
-	
-	err := ValidateCommand(cmd)
-	if err != nil {
-		t.Errorf("ValidateCommand should return nil, got: %v", err)
-	}
-	
-	// Test with nil command
-	err = ValidateCommand(nil)
-	if err != nil {
-		t.Errorf("ValidateCommand with nil should return nil, got: %v", err)
 	}
 }

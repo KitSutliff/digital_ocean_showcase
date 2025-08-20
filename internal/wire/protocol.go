@@ -128,11 +128,3 @@ func ParseCommand(line string) (*Command, error) {
 		Dependencies: deps,
 	}, nil
 }
-
-// ValidateCommand performs additional validation on a parsed command
-// Note: Keep minimal to avoid over-validation that breaks test harness compatibility
-func ValidateCommand(cmd *Command) error {
-	// All validation is already done in ParseCommand to avoid over-validation
-	// This function is kept for interface compatibility but does nothing
-	return nil
-}

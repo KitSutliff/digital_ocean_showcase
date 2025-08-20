@@ -87,94 +87,8 @@ func TestServer_StartWithContext_CancelledContext(t *testing.T) {
 	}
 }
 
-// TestServer_HandleConnection_WaitGroupManagement tests the wrapper function
-func TestServer_HandleConnection_WaitGroupManagement(t *testing.T) {
-	srv := NewServer(":0")
-	srv.ctx, srv.cancel = context.WithCancel(context.Background())
-	defer srv.cancel()
-
-	clientConn, serverConn := net.Pipe()
-	defer clientConn.Close()
-	defer serverConn.Close()
-
-	// Track WaitGroup pointer address
-	initialWGPtr := &srv.wg
-
-	// Call handleConnection (the wrapper)
-	srv.handleConnection(serverConn)
-
-	// Give it time to start
-	time.Sleep(50 * time.Millisecond)
-
-	// Send a command to verify connection is active
-	clientConn.Write([]byte("INDEX|test|\n"))
-
-	// Close client to trigger cleanup
-	clientConn.Close()
-
-	// Wait for WaitGroup to be decremented (connection cleanup)
-	done := make(chan bool)
-	go func() {
-		srv.wg.Wait()
-		done <- true
-	}()
-
-	select {
-	case <-done:
-		// Success - WaitGroup was properly managed
-	case <-time.After(time.Second):
-		t.Error("WaitGroup was not properly managed - connection did not clean up")
-	}
-
-	// Verify WaitGroup is the same instance by pointer equality
-	if &srv.wg != initialWGPtr {
-		t.Error("WaitGroup instance should not change")
-	}
-}
-
-// TestServer_HandleConnectionWithContext_WaitGroupCleanup tests WaitGroup management in context version
-func TestServer_HandleConnectionWithContext_WaitGroupCleanup(t *testing.T) {
-	srv := NewServer(":0")
-	srv.ctx, srv.cancel = context.WithCancel(context.Background())
-	defer srv.cancel()
-
-	clientConn, serverConn := net.Pipe()
-	defer clientConn.Close()
-	defer serverConn.Close()
-
-	// Manually call Add to simulate what StartWithContext does
-	srv.wg.Add(1)
-
-	// Start the connection handler
-	go srv.handleConnectionWithContext(serverConn)
-
-	// Send a command to verify connection is active
-	clientConn.Write([]byte("INDEX|test|\n"))
-
-	// Wait for response to ensure handler is running
-	buffer := make([]byte, 10)
-	clientConn.Read(buffer)
-
-	// Close client to trigger cleanup
-	clientConn.Close()
-
-	// Wait for WaitGroup to be decremented
-	done := make(chan bool)
-	go func() {
-		srv.wg.Wait()
-		done <- true
-	}()
-
-	select {
-	case <-done:
-		// Success - WaitGroup was properly decremented
-	case <-time.After(time.Second):
-		t.Error("handleConnectionWithContext did not properly decrement WaitGroup")
-	}
-}
-
-// TestServer_HandleConnectionWithContext_ContextCancellation tests graceful shutdown via context
-func TestServer_HandleConnectionWithContext_ContextCancellation(t *testing.T) {
+// TestServer_HandleConnection_ContextCancellation tests graceful shutdown via context
+func TestServer_HandleConnection_ContextCancellation(t *testing.T) {
 	srv := NewServer(":0")
 	srv.ctx, srv.cancel = context.WithCancel(context.Background())
 
@@ -187,7 +101,7 @@ func TestServer_HandleConnectionWithContext_ContextCancellation(t *testing.T) {
 	// Start connection handler
 	handlerDone := make(chan bool)
 	go func() {
-		srv.handleConnectionWithContext(serverConn)
+		srv.handleConnection(serverConn)
 		handlerDone <- true
 	}()
 
@@ -202,7 +116,7 @@ func TestServer_HandleConnectionWithContext_ContextCancellation(t *testing.T) {
 	case <-handlerDone:
 		// Success - handler exited due to context cancellation
 	case <-time.After(time.Second):
-		t.Error("handleConnectionWithContext did not respond to context cancellation")
+		t.Error("handleConnection did not respond to context cancellation")
 	}
 }
 

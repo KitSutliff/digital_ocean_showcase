@@ -23,16 +23,16 @@ func waitFor(t *testing.T, timeout time.Duration, pred func() bool) {
 	t.Fatalf("timeout waiting for condition after %v", timeout)
 }
 
-func TestHandleConnectionWithContext_ProcessAndShutdown(t *testing.T) {
+func TestHandleConnection_ProcessAndShutdown(t *testing.T) {
 	s := NewServer(":0")
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 
 	client, server := net.Pipe()
 	defer client.Close()
 
-	// Account for wg.Done() in handleConnectionWithContext
+	// Account for wg.Done() in handleConnection
 	s.wg.Add(1)
-	go s.handleConnectionWithContext(server)
+	go s.handleConnection(server)
 
 	// Send a valid command and expect OK
 	if _, err := client.Write([]byte("INDEX|pkg|\n")); err != nil {
@@ -127,44 +127,6 @@ func TestShutdown_TimeoutWhenConnectionsHung(t *testing.T) {
 	if err := s.Shutdown(shutdownCtx); err == nil {
 		t.Fatalf("expected shutdown to time out, but got nil error")
 	}
-}
-
-func TestHandleConnection_WrapperAddsWaitGroup(t *testing.T) {
-	s := NewServer(":0")
-	s.ctx, s.cancel = context.WithCancel(context.Background())
-
-	client, server := net.Pipe()
-	defer client.Close()
-
-	// handleConnection should Add(1) and spawn the context-aware handler
-	s.handleConnection(server)
-
-	if _, err := client.Write([]byte("QUERY|x|\n")); err != nil {
-		t.Fatalf("failed to write query: %v", err)
-	}
-	resp, err := bufio.NewReader(client).ReadString('\n')
-	if err != nil {
-		t.Fatalf("failed to read response: %v", err)
-	}
-	if resp != "FAIL\n" {
-		t.Fatalf("expected FAIL, got %q", resp)
-	}
-
-	// Cancel and wait for the goroutine to exit
-	s.cancel()
-	waitFor(t, 2*time.Second, func() bool {
-		c := make(chan struct{})
-		go func() {
-			s.wg.Wait()
-			close(c)
-		}()
-		select {
-		case <-c:
-			return true
-		case <-time.After(20 * time.Millisecond):
-			return false
-		}
-	})
 }
 
 func TestNewServer(t *testing.T) {

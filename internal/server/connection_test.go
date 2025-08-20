@@ -25,7 +25,8 @@ func TestServer_HandleConnection_Lifecycle(t *testing.T) {
 	// Test connection processing in goroutine (using new context-aware method)
 	srv.ctx, srv.cancel = context.WithCancel(context.Background())
 	defer srv.cancel()
-	go srv.handleConnectionDirect(serverConn)
+	srv.wg.Add(1)
+	go srv.handleConnection(serverConn)
 
 	// Send valid commands and verify responses
 	commands := []struct {
@@ -71,7 +72,8 @@ func TestServer_HandleConnection_EOF(t *testing.T) {
 	defer srv.cancel()
 	done := make(chan bool)
 	go func() {
-		srv.handleConnectionDirect(serverConn)
+		srv.wg.Add(1)
+		srv.handleConnection(serverConn)
 		done <- true
 	}()
 
@@ -97,7 +99,8 @@ func testConnectionErrorHandling(t *testing.T, testName string, action func(net.
 	defer srv.cancel()
 	done := make(chan bool)
 	go func() {
-		srv.handleConnectionDirect(serverConn)
+		srv.wg.Add(1)
+		srv.handleConnection(serverConn)
 		done <- true
 	}()
 
@@ -141,7 +144,8 @@ func TestServer_HandleConnection_LargeMessage(t *testing.T) {
 
 	srv.ctx, srv.cancel = context.WithCancel(context.Background())
 	defer srv.cancel()
-	go srv.handleConnectionDirect(serverConn)
+	srv.wg.Add(1)
+	go srv.handleConnection(serverConn)
 
 	// Create a large but valid command
 	largeDeps := strings.Repeat("dep", 1000)
@@ -186,7 +190,8 @@ func TestServer_HandleConnection_ConcurrentConnections(t *testing.T) {
 			defer serverConn.Close()
 
 			// Start connection handler
-			go localSrv.handleConnectionDirect(serverConn)
+			localSrv.wg.Add(1)
+			go localSrv.handleConnection(serverConn)
 
 			// Each connection indexes a unique package
 			command := "INDEX|package" + string(rune('0'+id)) + "|\n"
@@ -231,7 +236,8 @@ func TestServer_HandleConnection_MalformedMessages(t *testing.T) {
 
 	srv.ctx, srv.cancel = context.WithCancel(context.Background())
 	defer srv.cancel()
-	go srv.handleConnectionDirect(serverConn)
+	srv.wg.Add(1)
+	go srv.handleConnection(serverConn)
 
 	malformedMessages := []string{
 		"",                       // Empty message
@@ -367,7 +373,7 @@ func (s *ServerWithListener) Start() error {
 
 		// Handle each connection in a separate goroutine
 		s.server.wg.Add(1)
-		go s.server.handleConnectionDirect(conn)
+		go s.server.handleConnection(conn)
 	}
 }
 
@@ -381,7 +387,8 @@ func TestServer_HandleConnection_StreamingCommands(t *testing.T) {
 	defer clientConn.Close()
 	defer serverConn.Close()
 
-	go srv.handleConnectionDirect(serverConn)
+	srv.wg.Add(1)
+	go srv.handleConnection(serverConn)
 
 	// Send commands one by one and read responses to avoid pipe deadlock
 	commands := []struct {

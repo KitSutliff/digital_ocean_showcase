@@ -82,36 +82,19 @@ func (s *Server) StartWithContext(ctx context.Context) error {
 		}
 
 		s.wg.Add(1)
-		go s.handleConnectionWithContext(conn)
+		go s.handleConnection(conn)
 	}
 }
 
-// handleConnection processes all messages from a single client connection
+// handleConnection processes all messages from a single client connection.
+// It sets up the context for graceful shutdown and manages the connection lifecycle.
 func (s *Server) handleConnection(conn net.Conn) {
-	s.wg.Add(1)
-	go s.handleConnectionWithContext(conn)
-}
-
-// handleConnectionDirect is for direct testing without WaitGroup management
-func (s *Server) handleConnectionDirect(conn net.Conn) {
-	defer func() {
-		if err := conn.Close(); err != nil {
-			log.Printf("Error closing connection: %v", err)
-		}
-	}()
-	// Use server context for cancellation
-	s.serveConn(s.ctx, conn)
-}
-
-// handleConnectionWithContext processes all messages from a single client connection with context support
-func (s *Server) handleConnectionWithContext(conn net.Conn) {
 	defer s.wg.Done()
 	defer func() {
 		if err := conn.Close(); err != nil {
 			log.Printf("Error closing connection: %v", err)
 		}
 	}()
-	// Use server context
 	s.serveConn(s.ctx, conn)
 }
 
