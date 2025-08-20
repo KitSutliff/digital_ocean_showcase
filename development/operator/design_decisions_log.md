@@ -1,6 +1,5 @@
 # DigitalOcean Package Indexer: Design Decisions Log
 
-**Logged by: Lex Cursor Echo (with Lex Main)**  
 **Date: 2025-01-23**  
 **Project Phase: Collaborative Multi-Agent Design & Synthesis**
 
