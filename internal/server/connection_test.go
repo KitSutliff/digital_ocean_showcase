@@ -87,10 +87,9 @@ func TestServer_HandleConnection_EOF(t *testing.T) {
 	}
 }
 
-// TestServer_HandleConnection_WriteError tests handling of write errors
-func TestServer_HandleConnection_WriteError(t *testing.T) {
+// testConnectionErrorHandling is a helper for testing various connection error scenarios
+func testConnectionErrorHandling(t *testing.T, testName string, action func(net.Conn)) {
 	srv := NewServer(":0")
-
 	clientConn, serverConn := net.Pipe()
 	defer serverConn.Close()
 
@@ -102,46 +101,34 @@ func TestServer_HandleConnection_WriteError(t *testing.T) {
 		done <- true
 	}()
 
-	// Send command but close client before response can be fully written
-	clientConn.Write([]byte("INDEX|test|\n"))
-	clientConn.Close()
+	// Perform the action that should cause an error
+	action(clientConn)
 
-	// Should handle write error gracefully
+	// Check that the handler exits gracefully
 	select {
 	case <-done:
-		// Success - connection handler exited cleanly
+		// Success
 	case <-time.After(time.Second):
-		t.Error("Connection handler did not exit after write error")
+		t.Errorf("%s: Connection handler did not exit after error", testName)
 	}
+}
+
+// TestServer_HandleConnection_WriteError tests handling of write errors
+func TestServer_HandleConnection_WriteError(t *testing.T) {
+	testConnectionErrorHandling(t, "WriteError", func(c net.Conn) {
+		// Send command but close client before response can be fully written
+		c.Write([]byte("INDEX|test|\n"))
+		c.Close()
+	})
 }
 
 // TestServer_HandleConnection_ReadError tests handling of various read errors
 func TestServer_HandleConnection_ReadError(t *testing.T) {
-	srv := NewServer(":0")
-
-	// Create a connection that will error on read
-	clientConn, serverConn := net.Pipe()
-	defer serverConn.Close()
-
-	srv.ctx, srv.cancel = context.WithCancel(context.Background())
-	defer srv.cancel()
-	done := make(chan bool)
-	go func() {
-		srv.handleConnectionDirect(serverConn)
-		done <- true
-	}()
-
-	// Send partial command and then close abruptly
-	clientConn.Write([]byte("INDEX|test")) // No newline, incomplete
-	clientConn.Close()
-
-	// Should handle read error gracefully
-	select {
-	case <-done:
-		// Success - connection handler exited cleanly
-	case <-time.After(time.Second):
-		t.Error("Connection handler did not exit after read error")
-	}
+	testConnectionErrorHandling(t, "ReadError", func(c net.Conn) {
+		// Send partial command and then close abruptly
+		c.Write([]byte("INDEX|test")) // No newline, incomplete
+		c.Close()
+	})
 }
 
 // TestServer_HandleConnection_LargeMessage tests handling of very large messages

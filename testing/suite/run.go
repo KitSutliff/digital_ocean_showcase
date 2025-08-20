@@ -52,17 +52,17 @@ func (t *TestRun) Fail(reason string) {
 	os.Exit(1)
 }
 
-//Failf fails the test with a formatted message
+// Failf fails the test with a formatted message
 func (t *TestRun) Failf(format string, a ...interface{}) {
 	t.Fail(fmt.Sprintf(format, a...))
 }
 
-//Faile fails the test with the error as its message
+// Faile fails the test with the error as its message
 func (t *TestRun) Faile(err error) {
 	t.Failf("%v", err)
 }
 
-//Run executes the test
+// Run executes the test
 func (t *TestRun) Run() {
 	startedAt := time.Now()
 
@@ -99,7 +99,7 @@ func (t *TestRun) Run() {
 	log.Printf("TESTRUN - FINISHED (took %dms %v)", durationInMillis(duration), duration)
 }
 
-//MakeTestRun returns a new instance of a test run.
+// MakeTestRun returns a new instance of a test run.
 func MakeTestRun(serverHost string, serverPort int, concurrencyLevel int, unluckiness int) *TestRun {
 	return &TestRun{
 		ServerHost:       serverHost,
@@ -199,7 +199,13 @@ func makeClient(clientName string, t *TestRun) PackageIndexerClient {
 	return client
 }
 
-func concurrentBruteforceIndexesPackages(clientCounter int, t *TestRun, segmentedPackages [][]*Package) {
+// runConcurrentClients is a generic helper to run a test function across multiple clients
+func runConcurrentClients(
+	clientCounter int,
+	t *TestRun,
+	segmentedPackages [][]*Package,
+	action func(client PackageIndexerClient, packages []*Package, unluckiness int) error,
+) {
 	t.waiting.Add(t.ConcurrencyLevel)
 	for _, p := range segmentedPackages {
 		clientCounter++
@@ -211,7 +217,7 @@ func concurrentBruteforceIndexesPackages(clientCounter int, t *TestRun, segmente
 			client := makeClient(name, t)
 			defer client.Close()
 
-			err := bruteforceIndexesPackages(client, packagesToProcess, t.Unluckiness)
+			err := action(client, packagesToProcess, t.Unluckiness)
 			if err != nil {
 				t.Failf("%v", err)
 			}
@@ -220,25 +226,12 @@ func concurrentBruteforceIndexesPackages(clientCounter int, t *TestRun, segmente
 	t.waiting.Wait()
 }
 
+func concurrentBruteforceIndexesPackages(clientCounter int, t *TestRun, segmentedPackages [][]*Package) {
+	runConcurrentClients(clientCounter, t, segmentedPackages, bruteforceIndexesPackages)
+}
+
 func concurrentBruteforceRemovesAllPackages(clientCounter int, t *TestRun, segmentedPackages [][]*Package) {
-	t.waiting.Add(t.ConcurrencyLevel)
-	for _, p := range segmentedPackages {
-		clientCounter++
-		go func(number int, packagesToProcess []*Package) {
-			name := fmt.Sprintf("client[%d]", number+1)
-			log.Printf("Starting %s", name)
-			defer t.waiting.Done()
-
-			client := makeClient(name, t)
-			defer client.Close()
-
-			err := bruteforceRemovesAllPackages(client, packagesToProcess, t.Unluckiness)
-			if err != nil {
-				t.Failf("%v", err)
-			}
-		}(clientCounter, p)
-	}
-	t.waiting.Wait()
+	runConcurrentClients(clientCounter, t, segmentedPackages, bruteforceRemovesAllPackages)
 }
 
 func concurrentverifyAllPackages(clientCounter int, t *TestRun, segmentedPackages [][]*Package, expectedRepose ResponseCode) {
