@@ -1,5 +1,5 @@
 // Package indexer implements a thread-safe in-memory dependency graph for package management.
-// This is the core business logic component, optimized for O(1) query operations and O(D) 
+// This is the core business logic component, optimized for O(1) query operations and O(D)
 // modification operations where D is the dependency count. The dual-map architecture enables
 // efficient validation of dependency constraints in both directions.
 package indexer
@@ -55,9 +55,9 @@ func (s StringSet) Copy() StringSet {
 type Indexer struct {
 	mu sync.RWMutex // RWMutex enables concurrent reads while ensuring exclusive writes for scalability
 
-	indexed      StringSet                // Tracks indexed packages for O(1) existence checks
-	dependencies map[string]StringSet     // Maps package to its dependencies (forward edges)
-	dependents   map[string]StringSet     // Maps package to its dependents (reverse edges)
+	indexed      StringSet            // Tracks indexed packages for O(1) existence checks
+	dependencies map[string]StringSet // Maps package to its dependencies (forward edges)
+	dependents   map[string]StringSet // Maps package to its dependents (reverse edges)
 }
 
 // RemoveResult represents the outcome of a remove operation using type-safe enums.

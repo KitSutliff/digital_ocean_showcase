@@ -13,11 +13,11 @@ import (
 // Lock-free design ensures minimal performance impact while providing accurate operational
 // data essential for production monitoring and capacity planning in high-throughput environments.
 type Metrics struct {
-	ConnectionsTotal    int64
-	CommandsProcessed   int64
-	ErrorCount         int64
-	PackagesIndexed    int64
-	StartTime          time.Time
+	ConnectionsTotal  int64
+	CommandsProcessed int64
+	ErrorCount        int64
+	PackagesIndexed   int64
+	StartTime         time.Time
 }
 
 // MetricsSnapshot represents a point-in-time view of server metrics for consistent reporting.
@@ -26,9 +26,9 @@ type Metrics struct {
 type MetricsSnapshot struct {
 	ConnectionsTotal  int64
 	CommandsProcessed int64
-	ErrorCount       int64
-	PackagesIndexed  int64
-	Uptime           time.Duration
+	ErrorCount        int64
+	PackagesIndexed   int64
+	Uptime            time.Duration
 }
 
 // NewMetrics creates a new metrics instance
@@ -63,8 +63,8 @@ func (m *Metrics) GetSnapshot() MetricsSnapshot {
 	return MetricsSnapshot{
 		ConnectionsTotal:  atomic.LoadInt64(&m.ConnectionsTotal),
 		CommandsProcessed: atomic.LoadInt64(&m.CommandsProcessed),
-		ErrorCount:       atomic.LoadInt64(&m.ErrorCount),
-		PackagesIndexed:  atomic.LoadInt64(&m.PackagesIndexed),
-		Uptime:           time.Since(m.StartTime),
+		ErrorCount:        atomic.LoadInt64(&m.ErrorCount),
+		PackagesIndexed:   atomic.LoadInt64(&m.PackagesIndexed),
+		Uptime:            time.Since(m.StartTime),
 	}
 }
