@@ -1,6 +1,6 @@
 # Binaries
 package-indexer
-server
+/server
 *.exe
 
 # Go build artifacts
