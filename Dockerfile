@@ -1,5 +1,5 @@
 # Multi-stage build for efficiency
-FROM golang:1.22 AS builder
+FROM golang:1.22.8 AS builder
 
 WORKDIR /app
 COPY go.mod ./
@@ -12,7 +12,7 @@ COPY . .
 RUN go build -o package-indexer ./app/cmd/server
 
 # Production image - using Ubuntu as required by challenge
-FROM ubuntu:latest
+FROM ubuntu:22.04
 
 # Install netcat for healthcheck and set up non-root user
 RUN apt-get update && apt-get install -y netcat-openbsd && \

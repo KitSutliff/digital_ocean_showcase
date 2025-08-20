@@ -53,7 +53,7 @@ make build
 make run
 
 # Run server in quiet mode (for performance testing)
-./package-indexer -quiet
+./package-indexer -quiet\n\n# Run server on specific address\n./package-indexer -addr :8080 -quiet
 
 # Test basic functionality
 echo "INDEX|test|" | nc localhost 8080  # Returns "OK"
@@ -178,6 +178,9 @@ cd testing/scripts && HARNESS_BIN=../harness/do-package-tree_darwin ./run_harnes
 
 # Run comprehensive stress test (1, 10, 25, 50, 100 concurrent clients with multiple seeds)
 cd testing/scripts && ./stress_test.sh
+
+# Chaos engineering - test fault tolerance with malformed messages and random disconnects
+cd testing/scripts && ./chaos_test.sh
 ```
 
 ## Production Considerations
@@ -185,7 +188,7 @@ cd testing/scripts && ./stress_test.sh
 - **Security**: Runs as non-root user in Docker
 - **Health Checks**: Docker health check via netcat TCP probe (`nc -z localhost 8080`)
 - **Testing**: Dual testing approach validates both development and production environments
-- **Containerization**: Multi-stage builds with Ubuntu base (as required by challenge)  
+- **Containerization**: Multi-stage builds with pinned Ubuntu base (ubuntu:22.04)\n- **Graceful Shutdown**: Handles SIGTERM/SIGINT signals, closes connections cleanly
 - **Monitoring**: Basic logging with connection lifecycle events
 - **Resource Usage**: Minimal memory footprint, efficient O(1) operations
 
