@@ -112,6 +112,7 @@ func (s *Server) serveConn(ctx context.Context, conn net.Conn) {
 
 	// Close the connection if context is cancelled to unblock reads
 	doneCh := make(chan struct{})
+	defer close(doneCh) // Ensure the goroutine exits
 	go func() {
 		select {
 		case <-ctx.Done():
@@ -121,37 +122,28 @@ func (s *Server) serveConn(ctx context.Context, conn net.Conn) {
 	}()
 
 	for {
-		select {
-		case <-ctx.Done():
-			log.Printf("Graceful shutdown: closing connection to %s", clientAddr)
-			close(doneCh)
+		// Reset deadline on each read
+		_ = conn.SetReadDeadline(time.Now().Add(readTimeout))
+
+		// Read line from client
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				log.Printf("Client disconnected: %s", clientAddr)
+			} else {
+				log.Printf("Error reading from client %s: %v", clientAddr, err)
+			}
 			return
-		default:
-			// Reset deadline on each read
-			_ = conn.SetReadDeadline(time.Now().Add(readTimeout))
+		}
 
-			// Read line from client
-			line, err := reader.ReadString('\n')
-			if err != nil {
-				if err == io.EOF {
-					log.Printf("Client disconnected: %s", clientAddr)
-				} else {
-					log.Printf("Error reading from client %s: %v", clientAddr, err)
-				}
-				close(doneCh)
-				return
-			}
+		// Process the command and get response
+		s.metrics.IncrementCommands()
+		response := s.processCommand(line)
 
-			// Process the command and get response
-			s.metrics.IncrementCommands()
-			response := s.processCommand(line)
-
-			// Send response back to client
-			if _, err := conn.Write([]byte(response.String())); err != nil {
-				log.Printf("Error writing response to client %s: %v", clientAddr, err)
-				close(doneCh)
-				return
-			}
+		// Send response back to client
+		if _, err := conn.Write([]byte(response.String())); err != nil {
+			log.Printf("Error writing response to client %s: %v", clientAddr, err)
+			return
 		}
 	}
 }
