@@ -11,13 +11,13 @@ import (
 var content embed.FS
 
 const (
-	//LineFormat defines a valid input line
-	// see data.go and data/brew-dependencies.txt
+	// LineFormat defines the regular expression pattern for valid dependency specification lines.
+	// Used for parsing package dependency data from embedded test files.
 	LineFormat = "^\\S+:( +)?(\\S+ *)*"
 )
 
 var (
-	//Matches well-formed lines from the data file
+	// lineMatcher validates dependency specification lines against the required format
 	lineMatcher, _ = regexp.Compile(LineFormat)
 )
 
@@ -32,9 +32,10 @@ func (pkg *Package) AddDependency(to *Package) {
 	pkg.Dependencies = append(pkg.Dependencies, to)
 }
 
-// AllPackages is a repository for all known packages
+// AllPackages maintains a registry of all packages used in testing scenarios.
+// Ensures consistent package instances across test operations to prevent duplicate objects.
 type AllPackages struct {
-	//All packages we know of
+	// Packages contains all registered packages for testing operations
 	Packages []*Package
 }
 
@@ -47,9 +48,9 @@ func (allPackages *AllPackages) Names() []string {
 	return names
 }
 
-// Named finds or creates a package with given name. This should be the only
-// function used to instantiate packages in production so that we can
-// keep a single instance per package.
+// Named finds or creates a package with the given name, ensuring singleton instances.
+// This factory method maintains referential integrity across the test package graph
+// by preventing duplicate package objects for the same logical package.
 func (allPackages *AllPackages) Named(name string) *Package {
 	var pkg *Package
 

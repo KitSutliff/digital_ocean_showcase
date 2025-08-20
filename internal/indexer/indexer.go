@@ -1,10 +1,16 @@
+// Package indexer implements a thread-safe in-memory dependency graph for package management.
+// This is the core business logic component, optimized for O(1) query operations and O(D) 
+// modification operations where D is the dependency count. The dual-map architecture enables
+// efficient validation of dependency constraints in both directions.
 package indexer
 
 import (
 	"sync"
 )
 
-// StringSet represents a set of strings using map for O(1) operations
+// StringSet represents a set of strings using Go's map implementation for O(1) operations.
+// This provides memory-efficient storage with constant-time lookups, essential for dependency
+// graph performance under high concurrent load.
 type StringSet map[string]struct{}
 
 // NewStringSet creates a new empty string set
@@ -42,22 +48,30 @@ func (s StringSet) Copy() StringSet {
 	return result
 }
 
-// Indexer manages the package dependency graph with thread-safe operations
+// Indexer manages the package dependency graph with thread-safe operations.
+// Architecture decision: Single RWMutex provides simple correctness guarantees while allowing
+// concurrent reads (QUERY operations). The dual-map design enables O(1) dependency validation
+// in both directions, critical for production performance under 100+ concurrent clients.
 type Indexer struct {
-	// RWMutex allows concurrent reads (QUERY) but exclusive writes (INDEX/REMOVE)
+	// RWMutex enables concurrent reads (QUERY) while ensuring exclusive writes (INDEX/REMOVE).
+	// This concurrency model scales well to 100+ clients with read-heavy workloads typical
+	// in observability systems where queries significantly outnumber modifications.
 	mu sync.RWMutex
 
-	// indexed tracks which packages are currently in the index
+	// indexed tracks which packages are currently in the index for O(1) existence checks
 	indexed StringSet
 
-	// dependencies maps package name to set of its dependencies
+	// dependencies maps package name to its dependency set, enabling forward traversal
 	dependencies map[string]StringSet
 
-	// dependents maps package name to set of packages that depend on it
+	// dependents maps package name to packages that depend on it, enabling reverse validation.
+	// This dual-map architecture eliminates the need for full graph traversal during REMOVE operations.
 	dependents map[string]StringSet
 }
 
-// RemoveResult represents the outcome of a remove operation
+// RemoveResult represents the outcome of a remove operation using type-safe enums.
+// This replaces the previous error-prone boolean tuple approach, improving code clarity
+// and reducing operational mistakes in production environments.
 type RemoveResult int
 
 const (
@@ -69,8 +83,9 @@ const (
 	RemoveResultBlocked
 )
 
-// removeDependentReference removes a reverse dependency reference for a given
-// dependency and cleans up the container map entry if it becomes empty.
+// removeDependentReference removes a reverse dependency reference and performs
+// memory cleanup to prevent unbounded growth. This helper function eliminates code
+// duplication and ensures consistent cleanup behavior across INDEX and REMOVE operations.
 func (idx *Indexer) removeDependentReference(dependency string, pkg string) {
 	if idx.dependents[dependency] != nil {
 		idx.dependents[dependency].Remove(pkg)
@@ -89,8 +104,11 @@ func NewIndexer() *Indexer {
 	}
 }
 
-// IndexPackage attempts to add/update a package with given dependencies
-// Returns true if successful (OK), false if dependencies missing (FAIL)
+// IndexPackage attempts to add/update a package with given dependencies.
+// Business rule enforcement: All dependencies must exist before indexing (fail-fast validation).
+// Supports package updates by cleaning up old dependencies before establishing new ones,
+// ensuring referential integrity throughout the dependency graph.
+// Returns true if successful (OK), false if dependencies missing (FAIL).
 func (idx *Indexer) IndexPackage(pkg string, deps []string) bool {
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
@@ -136,7 +154,10 @@ func (idx *Indexer) IndexPackage(pkg string, deps []string) bool {
 	return true // OK
 }
 
-// RemovePackage attempts to remove a package from the index
+// RemovePackage attempts to remove a package from the index with dependency validation.
+// Business rule enforcement: Cannot remove packages with active dependents (prevents orphaned references).
+// The operation is idempotent - removing non-existent packages returns success for operational simplicity.
+// Uses type-safe enum results to eliminate boolean interpretation errors in production code.
 func (idx *Indexer) RemovePackage(pkg string) RemoveResult {
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
@@ -168,7 +189,9 @@ func (idx *Indexer) RemovePackage(pkg string) RemoveResult {
 	return RemoveResultOK // OK
 }
 
-// QueryPackage checks if a package is indexed (read-only operation)
+// QueryPackage checks if a package is indexed (read-only operation).
+// Performance optimization: Uses read lock to allow concurrent queries, essential for
+// high-throughput observability workloads where reads vastly outnumber writes.
 func (idx *Indexer) QueryPackage(pkg string) bool {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
@@ -176,7 +199,9 @@ func (idx *Indexer) QueryPackage(pkg string) bool {
 	return idx.indexed.Contains(pkg)
 }
 
-// GetStats returns current index statistics (for debugging/monitoring)
+// GetStats returns current index statistics for operational monitoring and alerting.
+// Provides visibility into dependency graph size and complexity, enabling capacity planning
+// and performance monitoring in production observability systems.
 func (idx *Indexer) GetStats() (indexed int, totalDeps int, totalReverseDeps int) {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()

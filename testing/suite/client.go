@@ -10,48 +10,52 @@ import (
 	"time"
 )
 
-//ResponseCode is the code returned by the sever as a response to our requests
+// ResponseCode represents protocol response codes returned by the server.
+// These constants match the wire protocol specification exactly for test compatibility.
 type ResponseCode string
 
 const (
-	//OK code
+	// OK indicates successful command execution
 	OK = "OK"
 
-	//FAIL code
+	// FAIL indicates command failed due to business logic constraints
 	FAIL = "FAIL"
 
-	//ERROR code
+	// ERROR indicates protocol or parsing errors
 	ERROR = "ERROR"
 
-	//UNKNOWN code
+	// UNKNOWN indicates unexpected server response for error handling
 	UNKNOWN = "UNKNOWN"
 )
 
-//PackageIndexerClient sends messages to a running server.
+// PackageIndexerClient defines the interface for communicating with the package indexer server.
+// This abstraction enables testing against different server implementations and connection types.
 type PackageIndexerClient interface {
 	Name() string
 	Close() error
 	Send(msg string) (ResponseCode, error)
 }
 
-// TCPPackageIndexerClient connects to the running server via TCP
+// TCPPackageIndexerClient implements PackageIndexerClient using TCP connections.
+// This is the production-equivalent client used for integration testing and validation.
 type TCPPackageIndexerClient struct {
 	name string
 	conn net.Conn
 }
 
-//Name return this client's name.
+// Name returns this client's identifier for logging and debugging purposes.
 func (client *TCPPackageIndexerClient) Name() string {
 	return client.name
 }
 
-//Close closes the connection to the server.
+// Close terminates the connection to the server and cleans up resources.
 func (client *TCPPackageIndexerClient) Close() error {
 	log.Printf("%s disconnecting", client.Name())
 	return client.conn.Close()
 }
 
-//Send sends amessage to the server using its line-oriented protocol
+// Send transmits a message to the server using the line-oriented protocol.
+// Handles connection timeouts and protocol parsing for robust test execution.
 func (client *TCPPackageIndexerClient) Send(msg string) (ResponseCode, error) {
 	extendTimoutFor(client.conn)
 	_, err := fmt.Fprintln(client.conn, msg)

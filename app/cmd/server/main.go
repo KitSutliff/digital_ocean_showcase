@@ -1,3 +1,6 @@
+// Package main provides the entry point for the package indexer TCP server.
+// This server manages package dependency relationships with high concurrency support,
+// designed for production observability workloads requiring 100+ simultaneous connections.
 package main
 
 import (
@@ -22,13 +25,16 @@ func main() {
 }
 
 // run encapsulates the server startup and graceful shutdown logic.
+// Separating this from main() enables unit testing and follows Go best practices
+// for production servers requiring reliable operational characteristics.
 func run() error {
-	// Parse command line flags
+	// Parse command line flags for operational flexibility
 	addr := flag.String("addr", ":8080", "Server listen address")
 	quiet := flag.Bool("quiet", false, "Disable logging for performance")
 	flag.Parse()
 
-	// Disable logging if quiet mode is enabled
+	// Performance optimization: disable logging eliminates I/O contention
+	// under high concurrent load, improving throughput for production workloads
 	if *quiet {
 		log.SetOutput(io.Discard)
 	}
@@ -57,7 +63,7 @@ func run() error {
 		return fmt.Errorf("server error: %w", err)
 	}
 
-	// Initiate graceful shutdown
+	// Initiate graceful shutdown with timeout to ensure operational reliability
 	log.Println("Initiating graceful shutdown...")
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
