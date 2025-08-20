@@ -176,11 +176,13 @@ func (s *Server) processCommand(line string) wire.Response {
 		return wire.FAIL
 
 	case wire.RemoveCommand:
-		ok, blocked := s.indexer.RemovePackage(cmd.Package)
-		if !ok && blocked {
+		switch s.indexer.RemovePackage(cmd.Package) {
+		case indexer.RemoveResultOK, indexer.RemoveResultNotIndexed:
+			return wire.OK
+		case indexer.RemoveResultBlocked:
 			return wire.FAIL
 		}
-		return wire.OK
+		return wire.ERROR // Should be unreachable
 
 	case wire.QueryCommand:
 		if s.indexer.QueryPackage(cmd.Package) {

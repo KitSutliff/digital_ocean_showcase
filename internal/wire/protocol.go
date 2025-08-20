@@ -55,6 +55,10 @@ const (
 	respOK    = "OK\n"
 	respFAIL  = "FAIL\n"
 	respERROR = "ERROR\n"
+
+	// ProtocolSeparators defines the characters used in the wire protocol
+	ProtocolSeparator   = "|"
+	DependencySeparator = ","
 )
 
 // String returns the protocol response string with newline
@@ -83,7 +87,7 @@ func ParseCommand(line string) (*Command, error) {
 	line = line[:len(line)-1]
 
 	// Split by pipe - must have exactly 3 parts
-	parts := strings.Split(line, "|")
+	parts := strings.Split(line, ProtocolSeparator)
 	if len(parts) != 3 {
 		return nil, fmt.Errorf("invalid format: expected 3 parts separated by |, got %d", len(parts))
 	}
@@ -113,7 +117,7 @@ func ParseCommand(line string) (*Command, error) {
 	// Parse dependencies (comma-separated, empty allowed)
 	var deps []string
 	if depsStr != "" {
-		rawDeps := strings.Split(depsStr, ",")
+		rawDeps := strings.Split(depsStr, DependencySeparator)
 		for _, dep := range rawDeps {
 			dep = strings.TrimSpace(dep)
 			if dep != "" { // Ignore empty deps from trailing commas

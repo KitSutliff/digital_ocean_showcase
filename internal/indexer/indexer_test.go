@@ -7,150 +7,156 @@ import (
 	"time"
 )
 
+// assertQuery checks if a package exists and fails the test if the expectation is not met.
+func assertQuery(t *testing.T, idx *Indexer, pkg string, shouldExist bool) {
+	t.Helper()
+	if idx.QueryPackage(pkg) != shouldExist {
+		t.Errorf("QueryPackage(%q) = %v, want %v", pkg, !shouldExist, shouldExist)
+	}
+}
+
+// assertIndex checks the result of an index operation.
+func assertIndex(t *testing.T, idx *Indexer, pkg string, deps []string, shouldSucceed bool) {
+	t.Helper()
+	if idx.IndexPackage(pkg, deps) != shouldSucceed {
+		t.Errorf("IndexPackage(%q, %v) = %v, want %v", pkg, deps, !shouldSucceed, shouldSucceed)
+	}
+}
+
+// assertRemove checks the result of a remove operation.
+func assertRemove(t *testing.T, idx *Indexer, pkg string, expectedResult RemoveResult) {
+	t.Helper()
+	result := idx.RemovePackage(pkg)
+	if result != expectedResult {
+		t.Errorf("RemovePackage(%q) = %v, want %v", pkg, result, expectedResult)
+	}
+}
+
 func TestIndexer_BasicOperations(t *testing.T) {
 	idx := NewIndexer()
-	
+
 	// Test query on empty index
-	if idx.QueryPackage("nonexistent") {
-		t.Error("Query should return false for non-existent package")
-	}
-	
+	assertQuery(t, idx, "nonexistent", false)
+
 	// Test indexing package with no dependencies
-	if !idx.IndexPackage("base", []string{}) {
-		t.Error("Should be able to index package with no dependencies")
-	}
-	
+	assertIndex(t, idx, "base", []string{}, true)
+
 	// Test query after indexing
-	if !idx.QueryPackage("base") {
-		t.Error("Query should return true for indexed package")
-	}
-	
+	assertQuery(t, idx, "base", true)
+
 	// Test indexing package with satisfied dependencies
-	if !idx.IndexPackage("app", []string{"base"}) {
-		t.Error("Should be able to index package with satisfied dependencies")
-	}
-	
+	assertIndex(t, idx, "app", []string{"base"}, true)
+
 	// Test indexing package with missing dependencies
-	if idx.IndexPackage("invalid", []string{"missing"}) {
-		t.Error("Should not be able to index package with missing dependencies")
-	}
+	assertIndex(t, idx, "invalid", []string{"missing"}, false)
+
+	// Test removing package that has dependents
+	assertRemove(t, idx, "base", RemoveResultBlocked)
+
+	// Test removing leaf package
+	assertRemove(t, idx, "app", RemoveResultOK)
+
+	// Test removing non-existent package (idempotent)
+	assertRemove(t, idx, "nonexistent", RemoveResultNotIndexed)
+
+	// Now base should be removable
+	assertRemove(t, idx, "base", RemoveResultOK)
 }
 
 func TestIndexer_RemoveOperations(t *testing.T) {
 	idx := NewIndexer()
-	
+
 	// Set up test data
-	idx.IndexPackage("base", []string{})
-	idx.IndexPackage("app", []string{"base"})
-	
+	assertIndex(t, idx, "base", []string{}, true)
+	assertIndex(t, idx, "app", []string{"base"}, true)
+
 	// Test removing package that has dependents
-	ok, blocked := idx.RemovePackage("base")
-	if ok || !blocked {
-		t.Error("Should not be able to remove package with dependents")
-	}
-	
+	assertRemove(t, idx, "base", RemoveResultBlocked)
+
 	// Test removing leaf package
-	ok, blocked = idx.RemovePackage("app")
-	if !ok || blocked {
-		t.Error("Should be able to remove package without dependents")
-	}
-	
+	assertRemove(t, idx, "app", RemoveResultOK)
+
 	// Test removing non-existent package (idempotent)
-	ok, blocked = idx.RemovePackage("nonexistent")
-	if !ok || blocked {
-		t.Error("Removing non-existent package should be OK")
-	}
-	
+	assertRemove(t, idx, "nonexistent", RemoveResultNotIndexed)
+
 	// Now base should be removable
-	ok, blocked = idx.RemovePackage("base")
-	if !ok || blocked {
-		t.Error("Should be able to remove base after removing its dependents")
-	}
+	assertRemove(t, idx, "base", RemoveResultOK)
 }
 
 func TestIndexer_ReindexOperations(t *testing.T) {
 	idx := NewIndexer()
-	
+
 	// Set up initial state
-	idx.IndexPackage("base1", []string{})
-	idx.IndexPackage("base2", []string{})
-	idx.IndexPackage("app", []string{"base1"})
-	
+	assertIndex(t, idx, "base1", []string{}, true)
+	assertIndex(t, idx, "base2", []string{}, true)
+	assertIndex(t, idx, "app", []string{"base1"}, true)
+
 	// Test re-indexing with different dependencies
-	if !idx.IndexPackage("app", []string{"base2"}) {
-		t.Error("Should be able to re-index package with different dependencies")
-	}
-	
+	assertIndex(t, idx, "app", []string{"base2"}, true)
+
 	// Verify old dependency relationship is removed
-	ok, blocked := idx.RemovePackage("base1")
-	if !ok || blocked {
-		t.Error("base1 should be removable after app no longer depends on it")
-	}
-	
+	assertRemove(t, idx, "base1", RemoveResultOK)
+
 	// Verify new dependency relationship exists
-	ok, blocked = idx.RemovePackage("base2")
-	if ok || !blocked {
-		t.Error("base2 should not be removable while app depends on it")
-	}
+	assertRemove(t, idx, "base2", RemoveResultBlocked)
 }
 
 func TestIndexer_ConcurrentOperations(t *testing.T) {
 	idx := NewIndexer()
-	
+
 	// Number of workers and operations per worker
 	numWorkers := 20
 	opsPerWorker := 50
-	
+
 	var wg sync.WaitGroup
-	
+
 	// Worker that performs mixed operations
 	worker := func(workerID int) {
 		defer wg.Done()
-		
+
 		for i := 0; i < opsPerWorker; i++ {
 			pkgName := fmt.Sprintf("pkg-%d-%d", workerID, i)
-			
+
 			// Index package
 			idx.IndexPackage(pkgName, []string{})
-			
+
 			// Query package multiple times (read operations should be concurrent)
 			for j := 0; j < 5; j++ {
 				if !idx.QueryPackage(pkgName) {
 					t.Errorf("Package %s should be indexed", pkgName)
 				}
 			}
-			
+
 			// Small delay to increase chance of contention
 			time.Sleep(time.Microsecond)
-			
+
 			// Remove package
-			ok, blocked := idx.RemovePackage(pkgName)
-			if !ok || blocked {
-				t.Errorf("Should be able to remove package %s", pkgName)
+			if result := idx.RemovePackage(pkgName); result != RemoveResultOK {
+				t.Errorf("Should be able to remove package %s, got result %v", pkgName, result)
 			}
 		}
 	}
-	
+
 	// Start workers
 	wg.Add(numWorkers)
 	for i := 0; i < numWorkers; i++ {
 		go worker(i)
 	}
-	
+
 	// Wait for completion
 	wg.Wait()
-	
+
 	// Verify final state is clean
 	indexed, deps, dependents := idx.GetStats()
 	if indexed != 0 || deps != 0 || dependents != 0 {
-		t.Errorf("Expected clean final state, got: indexed=%d, deps=%d, dependents=%d", 
+		t.Errorf("Expected clean final state, got: indexed=%d, deps=%d, dependents=%d",
 			indexed, deps, dependents)
 	}
 }
 
 func TestStringSet_Operations(t *testing.T) {
 	s := NewStringSet()
-	
+
 	// Test empty set
 	if s.Len() != 0 {
 		t.Error("New set should be empty")
@@ -158,7 +164,7 @@ func TestStringSet_Operations(t *testing.T) {
 	if s.Contains("item") {
 		t.Error("Empty set should not contain any items")
 	}
-	
+
 	// Test add operation
 	s.Add("item1")
 	s.Add("item2")
@@ -168,13 +174,13 @@ func TestStringSet_Operations(t *testing.T) {
 	if !s.Contains("item1") || !s.Contains("item2") {
 		t.Error("Set should contain added items")
 	}
-	
+
 	// Test duplicate add (should be idempotent)
 	s.Add("item1")
 	if s.Len() != 2 {
 		t.Error("Adding duplicate should not change set size")
 	}
-	
+
 	// Test remove operation
 	s.Remove("item1")
 	if s.Len() != 1 {
@@ -183,7 +189,7 @@ func TestStringSet_Operations(t *testing.T) {
 	if s.Contains("item1") {
 		t.Error("Set should not contain removed item")
 	}
-	
+
 	// Test copy operation
 	s.Add("item3")
 	copy := s.Copy()

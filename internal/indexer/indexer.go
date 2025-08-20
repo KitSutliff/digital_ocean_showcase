@@ -57,6 +57,18 @@ type Indexer struct {
 	dependents map[string]StringSet
 }
 
+// RemoveResult represents the outcome of a remove operation
+type RemoveResult int
+
+const (
+	// RemoveResultOK indicates the package was successfully removed
+	RemoveResultOK RemoveResult = iota
+	// RemoveResultNotIndexed indicates the package was not indexed (idempotent success)
+	RemoveResultNotIndexed
+	// RemoveResultBlocked indicates the package could not be removed due to dependents
+	RemoveResultBlocked
+)
+
 // removeDependentReference removes a reverse dependency reference for a given
 // dependency and cleans up the container map entry if it becomes empty.
 func (idx *Indexer) removeDependentReference(dependency string, pkg string) {
@@ -125,21 +137,18 @@ func (idx *Indexer) IndexPackage(pkg string, deps []string) bool {
 }
 
 // RemovePackage attempts to remove a package from the index
-// Returns (true, false) if successful (OK)
-// Returns (false, true) if blocked by dependents (FAIL)
-// Returns (true, false) if package wasn't indexed (OK - idempotent)
-func (idx *Indexer) RemovePackage(pkg string) (ok bool, blocked bool) {
+func (idx *Indexer) RemovePackage(pkg string) RemoveResult {
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
 
 	// If not indexed, removal is OK (idempotent)
 	if !idx.indexed.Contains(pkg) {
-		return true, false
+		return RemoveResultNotIndexed
 	}
 
 	// Check if any packages depend on this one
 	if dependents := idx.dependents[pkg]; dependents != nil && dependents.Len() > 0 {
-		return false, true // FAIL - has dependents
+		return RemoveResultBlocked // FAIL - has dependents
 	}
 
 	// Remove from index
@@ -156,7 +165,7 @@ func (idx *Indexer) RemovePackage(pkg string) (ok bool, blocked bool) {
 	// Clean up reverse dependencies (should be empty but defensive)
 	delete(idx.dependents, pkg)
 
-	return true, false // OK
+	return RemoveResultOK // OK
 }
 
 // QueryPackage checks if a package is indexed (read-only operation)
