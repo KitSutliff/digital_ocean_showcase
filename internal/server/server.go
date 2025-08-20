@@ -26,11 +26,11 @@ type Server struct {
 	indexer  *indexer.Indexer
 	addr     string
 	listener net.Listener
-	wg       sync.WaitGroup
+	wg       sync.WaitGroup // Tracks active connections for graceful shutdown
 	ctx      context.Context
 	cancel   context.CancelFunc
 	metrics  *Metrics
-	ready    chan bool // Channel to signal when the listener is ready
+	ready    chan bool // Signals when the listener is ready for connections
 }
 
 const (

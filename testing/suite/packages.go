@@ -27,7 +27,7 @@ type Package struct {
 	Dependencies []*Package
 }
 
-// AddDependency makes this package depend on some other
+// AddDependency makes this package depend on another package
 func (pkg *Package) AddDependency(to *Package) {
 	pkg.Dependencies = append(pkg.Dependencies, to)
 }
@@ -35,8 +35,7 @@ func (pkg *Package) AddDependency(to *Package) {
 // AllPackages maintains a registry of all packages used in testing scenarios.
 // Ensures consistent package instances across test operations to prevent duplicate objects.
 type AllPackages struct {
-	// Packages contains all registered packages for testing operations
-	Packages []*Package
+	Packages []*Package // All registered packages for testing operations
 }
 
 // Names returns the names of all known packages
@@ -68,6 +67,7 @@ func (allPackages *AllPackages) Named(name string) *Package {
 	return pkg
 }
 
+// makeUnprocessedPackage creates a new package instance with empty dependencies
 func makeUnprocessedPackage(name string) *Package {
 	return &Package{
 		Name:         name,

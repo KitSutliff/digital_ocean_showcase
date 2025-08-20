@@ -53,20 +53,11 @@ func (s StringSet) Copy() StringSet {
 // concurrent reads (QUERY operations). The dual-map design enables O(1) dependency validation
 // in both directions, critical for production performance under 100+ concurrent clients.
 type Indexer struct {
-	// RWMutex enables concurrent reads (QUERY) while ensuring exclusive writes (INDEX/REMOVE).
-	// This concurrency model scales well to 100+ clients with read-heavy workloads typical
-	// in observability systems where queries significantly outnumber modifications.
-	mu sync.RWMutex
+	mu sync.RWMutex // RWMutex enables concurrent reads while ensuring exclusive writes for scalability
 
-	// indexed tracks which packages are currently in the index for O(1) existence checks
-	indexed StringSet
-
-	// dependencies maps package name to its dependency set, enabling forward traversal
-	dependencies map[string]StringSet
-
-	// dependents maps package name to packages that depend on it, enabling reverse validation.
-	// This dual-map architecture eliminates the need for full graph traversal during REMOVE operations.
-	dependents map[string]StringSet
+	indexed      StringSet                // Tracks indexed packages for O(1) existence checks
+	dependencies map[string]StringSet     // Maps package to its dependencies (forward edges)
+	dependents   map[string]StringSet     // Maps package to its dependents (reverse edges)
 }
 
 // RemoveResult represents the outcome of a remove operation using type-safe enums.
