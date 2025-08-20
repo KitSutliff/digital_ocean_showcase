@@ -14,18 +14,12 @@ import (
 // These constants match the wire protocol specification exactly for test compatibility.
 type ResponseCode string
 
+// Protocol response codes matching server specification
 const (
-	// OK indicates successful command execution
-	OK = "OK"
-
-	// FAIL indicates command failed due to business logic constraints
-	FAIL = "FAIL"
-
-	// ERROR indicates protocol or parsing errors
-	ERROR = "ERROR"
-
-	// UNKNOWN indicates unexpected server response for error handling
-	UNKNOWN = "UNKNOWN"
+	OK      = "OK"      // Successful command execution
+	FAIL    = "FAIL"    // Command failed due to business logic constraints
+	ERROR   = "ERROR"   // Protocol or parsing errors
+	UNKNOWN = "UNKNOWN" // Unexpected server response
 )
 
 // PackageIndexerClient defines the interface for communicating with the package indexer server.
@@ -57,14 +51,14 @@ func (client *TCPPackageIndexerClient) Close() error {
 // Send transmits a message to the server using the line-oriented protocol.
 // Handles connection timeouts and protocol parsing for robust test execution.
 func (client *TCPPackageIndexerClient) Send(msg string) (ResponseCode, error) {
-	extendTimoutFor(client.conn)
+	extendTimeoutFor(client.conn)
 	_, err := fmt.Fprintln(client.conn, msg)
 
 	if err != nil {
 		return UNKNOWN, fmt.Errorf("Error sending message to server: %v", err)
 	}
 
-	extendTimoutFor(client.conn)
+	extendTimeoutFor(client.conn)
 	responseMsg, err := bufio.NewReader(client.conn).ReadString('\n')
 	if err != nil {
 		return UNKNOWN, fmt.Errorf("Error reading response code from server: %v", err)
@@ -103,7 +97,8 @@ func MakeTCPPackageIndexClient(name string, hostname string, port int) (PackageI
 	}, nil
 }
 
-func extendTimoutFor(conn net.Conn) {
-	whenWillThisConnectionTimeout := time.Now().Add(time.Second * 10)
-	conn.SetDeadline(whenWillThisConnectionTimeout)
+// extendTimeoutFor sets a 10-second deadline on the connection to prevent hangs
+func extendTimeoutFor(conn net.Conn) {
+	deadline := time.Now().Add(10 * time.Second)
+	conn.SetDeadline(deadline)
 }

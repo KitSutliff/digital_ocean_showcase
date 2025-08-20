@@ -23,12 +23,14 @@ type Command struct {
 // statements in performance-critical connection processing code paths.
 type CommandType int
 
+// Command type enumeration for type-safe command processing
 const (
 	IndexCommand CommandType = iota
 	RemoveCommand
 	QueryCommand
 )
 
+// Command string constants for protocol parsing and logging
 const (
 	cmdIndexStr   = "INDEX"
 	cmdRemoveStr  = "REMOVE"
@@ -56,22 +58,21 @@ func (ct CommandType) String() string {
 // ensures compatibility with external validation systems and test harnesses.
 type Response int
 
+// Response enumeration for type-safe response handling
 const (
 	OK Response = iota
 	FAIL
 	ERROR
 )
 
+// Protocol constants for wire format compliance and consistency
 const (
 	respOK    = "OK\n"
 	respFAIL  = "FAIL\n"
 	respERROR = "ERROR\n"
 
-	// Protocol separators defined as constants for maintainability and consistency.
-	// Single source of truth approach prevents protocol drift and ensures uniform
-	// parsing behavior across the entire codebase.
-	ProtocolSeparator   = "|"
-	DependencySeparator = ","
+	ProtocolSeparator   = "|" // Separates command fields
+	DependencySeparator = "," // Separates dependency lists
 )
 
 // String returns the protocol response string with required trailing newline.

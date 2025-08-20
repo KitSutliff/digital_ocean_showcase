@@ -10,14 +10,14 @@ import (
 //go:embed data/*
 var content embed.FS
 
+// LineFormat defines the regular expression pattern for valid dependency specification lines.
+// Used for parsing package dependency data from embedded test files.
 const (
-	// LineFormat defines the regular expression pattern for valid dependency specification lines.
-	// Used for parsing package dependency data from embedded test files.
 	LineFormat = "^\\S+:( +)?(\\S+ *)*"
 )
 
+// lineMatcher validates dependency specification lines against the required format
 var (
-	// lineMatcher validates dependency specification lines against the required format
 	lineMatcher, _ = regexp.Compile(LineFormat)
 )
 

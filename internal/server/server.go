@@ -33,11 +33,9 @@ type Server struct {
 	ready    chan bool // Signals when the listener is ready for connections
 }
 
+// Timeout configuration for connection read operations
 const (
-	// readTimeout defines the per-read deadline to mitigate slowloris-style DoS attacks.
-	// This operational security measure prevents malicious clients from holding connections
-	// indefinitely, ensuring server availability under adversarial conditions.
-	readTimeout = 30 * time.Second
+	readTimeout = 30 * time.Second // Per-read deadline to prevent slowloris attacks
 )
 
 // NewServer creates a new server instance
@@ -55,9 +53,7 @@ func (s *Server) Start() error {
 	return s.StartWithContext(context.Background())
 }
 
-// StartWithContext begins listening for connections with context support for graceful shutdown.
-// Production-ready design: Context cancellation triggers immediate listener closure and prevents
-// new connections, while existing connections drain gracefully within timeout bounds.
+// StartWithContext begins listening for connections with context support for graceful shutdown
 func (s *Server) StartWithContext(ctx context.Context) error {
 	s.ctx, s.cancel = context.WithCancel(ctx)
 
@@ -96,9 +92,7 @@ func (s *Server) StartWithContext(ctx context.Context) error {
 	}
 }
 
-// handleConnection processes all messages from a single client connection.
-// Goroutine-per-connection architecture: Each client gets dedicated processing thread with
-// automatic cleanup via defer statements, ensuring no resource leaks under high load.
+// handleConnection processes all messages from a single client connection
 func (s *Server) handleConnection(conn net.Conn) {
 	defer s.wg.Done()
 	defer func() {
@@ -109,10 +103,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 	s.serveConn(s.ctx, conn)
 }
 
-// serveConn contains the core connection processing loop with operational safeguards.
-// Performance optimization: Eliminates select overhead in favor of background goroutine
-// for graceful shutdown monitoring. Includes per-read timeouts and comprehensive logging
-// for production observability and debugging.
+// serveConn contains the core connection processing loop
 func (s *Server) serveConn(ctx context.Context, conn net.Conn) {
 	clientAddr := conn.RemoteAddr().String()
 	log.Printf("Client connected: %s", clientAddr)
@@ -163,9 +154,7 @@ func (s *Server) serveConn(ctx context.Context, conn net.Conn) {
 	}
 }
 
-// processCommand parses and executes a single command with comprehensive error handling.
-// Business logic coordination: Delegates to indexer for dependency management while maintaining
-// protocol compliance and operational metrics for monitoring and alerting.
+// processCommand parses and executes a single command
 func (s *Server) processCommand(line string) wire.Response {
 	// Parse the command
 	cmd, err := wire.ParseCommand(line)
@@ -211,9 +200,7 @@ func (s *Server) GetMetrics() MetricsSnapshot {
 	return s.metrics.GetSnapshot()
 }
 
-// Shutdown gracefully shuts down the server with configurable timeout.
-// Production reliability: Waits for active connections to complete processing before
-// termination, preventing data loss and ensuring clean operational state transitions.
+// Shutdown gracefully shuts down the server with configurable timeout
 func (s *Server) Shutdown(ctx context.Context) error {
 	log.Printf("Initiating graceful shutdown...")
 

@@ -65,18 +65,14 @@ type Indexer struct {
 // and reducing operational mistakes in production environments.
 type RemoveResult int
 
+// RemoveResult enumeration for type-safe remove operation outcomes
 const (
-	// RemoveResultOK indicates the package was successfully removed
-	RemoveResultOK RemoveResult = iota
-	// RemoveResultNotIndexed indicates the package was not indexed (idempotent success)
-	RemoveResultNotIndexed
-	// RemoveResultBlocked indicates the package could not be removed due to dependents
-	RemoveResultBlocked
+	RemoveResultOK         RemoveResult = iota // Package successfully removed
+	RemoveResultNotIndexed                     // Package was not indexed (idempotent success)
+	RemoveResultBlocked                        // Package has dependents (cannot remove)
 )
 
-// removeDependentReference removes a reverse dependency reference and performs
-// memory cleanup to prevent unbounded growth. This helper function eliminates code
-// duplication and ensures consistent cleanup behavior across INDEX and REMOVE operations.
+// removeDependentReference removes a reverse dependency reference with cleanup
 func (idx *Indexer) removeDependentReference(dependency string, pkg string) {
 	if idx.dependents[dependency] != nil {
 		idx.dependents[dependency].Remove(pkg)
@@ -96,9 +92,6 @@ func NewIndexer() *Indexer {
 }
 
 // IndexPackage attempts to add/update a package with given dependencies.
-// Business rule enforcement: All dependencies must exist before indexing (fail-fast validation).
-// Supports package updates by cleaning up old dependencies before establishing new ones,
-// ensuring referential integrity throughout the dependency graph.
 // Returns true if successful (OK), false if dependencies missing (FAIL).
 func (idx *Indexer) IndexPackage(pkg string, deps []string) bool {
 	idx.mu.Lock()
@@ -145,10 +138,8 @@ func (idx *Indexer) IndexPackage(pkg string, deps []string) bool {
 	return true // OK
 }
 
-// RemovePackage attempts to remove a package from the index with dependency validation.
-// Business rule enforcement: Cannot remove packages with active dependents (prevents orphaned references).
-// The operation is idempotent - removing non-existent packages returns success for operational simplicity.
-// Uses type-safe enum results to eliminate boolean interpretation errors in production code.
+// RemovePackage attempts to remove a package from the index.
+// Cannot remove packages with active dependents. Operation is idempotent.
 func (idx *Indexer) RemovePackage(pkg string) RemoveResult {
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
@@ -180,9 +171,7 @@ func (idx *Indexer) RemovePackage(pkg string) RemoveResult {
 	return RemoveResultOK // OK
 }
 
-// QueryPackage checks if a package is indexed (read-only operation).
-// Performance optimization: Uses read lock to allow concurrent queries, essential for
-// high-throughput observability workloads where reads vastly outnumber writes.
+// QueryPackage checks if a package is indexed (read-only operation)
 func (idx *Indexer) QueryPackage(pkg string) bool {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
@@ -190,9 +179,7 @@ func (idx *Indexer) QueryPackage(pkg string) bool {
 	return idx.indexed.Contains(pkg)
 }
 
-// GetStats returns current index statistics for operational monitoring and alerting.
-// Provides visibility into dependency graph size and complexity, enabling capacity planning
-// and performance monitoring in production observability systems.
+// GetStats returns current index statistics for monitoring
 func (idx *Indexer) GetStats() (indexed int, totalDeps int, totalReverseDeps int) {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()

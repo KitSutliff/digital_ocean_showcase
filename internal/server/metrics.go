@@ -38,33 +38,27 @@ func NewMetrics() *Metrics {
 	}
 }
 
-// IncrementConnections atomically increments the connection counter for thread safety.
-// Operational metric: Tracks total connections handled for capacity planning and monitoring.
+// IncrementConnections atomically increments the connection counter
 func (m *Metrics) IncrementConnections() {
 	atomic.AddInt64(&m.ConnectionsTotal, 1)
 }
 
-// IncrementCommands atomically increments the command counter for throughput monitoring.
-// Performance metric: Measures protocol commands processed for load analysis and optimization.
+// IncrementCommands atomically increments the command counter
 func (m *Metrics) IncrementCommands() {
 	atomic.AddInt64(&m.CommandsProcessed, 1)
 }
 
-// IncrementErrors atomically increments the error counter for reliability monitoring.
-// Operational metric: Tracks protocol and processing errors for alerting and diagnostics.
+// IncrementErrors atomically increments the error counter
 func (m *Metrics) IncrementErrors() {
 	atomic.AddInt64(&m.ErrorCount, 1)
 }
 
-// IncrementPackages atomically increments the package counter for business logic monitoring.
-// Business metric: Tracks successful package indexing operations for usage analysis.
+// IncrementPackages atomically increments the package counter
 func (m *Metrics) IncrementPackages() {
 	atomic.AddInt64(&m.PackagesIndexed, 1)
 }
 
-// GetSnapshot returns a consistent snapshot of current metrics for external monitoring systems.
-// Thread-safe atomic reads provide point-in-time consistency essential for accurate
-// reporting to observability platforms and operational dashboards.
+// GetSnapshot returns a consistent point-in-time view of current metrics
 func (m *Metrics) GetSnapshot() MetricsSnapshot {
 	return MetricsSnapshot{
 		ConnectionsTotal:  atomic.LoadInt64(&m.ConnectionsTotal),

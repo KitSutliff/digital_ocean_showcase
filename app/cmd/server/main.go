@@ -28,13 +28,12 @@ func main() {
 // Separating this from main() enables unit testing and follows Go best practices
 // for production servers requiring reliable operational characteristics.
 func run() error {
-	// Parse command line flags for operational flexibility
+	// Parse command line flags
 	addr := flag.String("addr", ":8080", "Server listen address")
 	quiet := flag.Bool("quiet", false, "Disable logging for performance")
 	flag.Parse()
 
-	// Performance optimization: disable logging eliminates I/O contention
-	// under high concurrent load, improving throughput for production workloads
+	// Disable logging for performance in high-throughput scenarios
 	if *quiet {
 		log.SetOutput(io.Discard)
 	}
@@ -63,7 +62,7 @@ func run() error {
 		return fmt.Errorf("server error: %w", err)
 	}
 
-	// Initiate graceful shutdown with timeout to ensure operational reliability
+	// Initiate graceful shutdown with timeout
 	log.Println("Initiating graceful shutdown...")
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
