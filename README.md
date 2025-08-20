@@ -206,7 +206,8 @@ digital_ocean_showcase/
 │   ├── scripts/          # Test automation scripts
 │   └── suite/            # Test framework
 ├── development/           # Development Artifacts
-│   └── communications/   # Planning and design documents
+│   ├── agent/            # AI agent planning documents
+│   └── operator/         # Project management documents
 ├── challenge/            # Original Challenge Materials
 │   ├── INSTRUCTIONS.md   # Challenge requirements
 │   └── source.tar.gz     # Original challenge files
@@ -223,6 +224,8 @@ digital_ocean_showcase/
   - `scripts/`: Test automation and verification scripts
   - `suite/`: Additional test framework components
 - **`development/`**: Development artifacts and planning documents
+  - `agent/`: AI agent planning documents and implementation proposals  
+  - `operator/`: Project management and design decision logs
 - **`challenge/`**: Original DigitalOcean challenge materials for reference
 
 ## License
