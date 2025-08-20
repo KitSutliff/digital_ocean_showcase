@@ -9,6 +9,13 @@ server
 *.test
 *.out
 
+# Coverage reports
+coverage.html
+coverage.txt
+
+# Version files
+version
+
 # Dependencies
 vendor/
 

@@ -58,7 +58,7 @@ func startTestServer(addr string) {
 			panic(fmt.Sprintf("Test server failed: %v", err))
 		}
 	}()
-	
+
 	// Give server time to start
 	time.Sleep(100 * time.Millisecond)
 }
@@ -144,10 +144,10 @@ func TestServer_ProtocolErrors(t *testing.T) {
 
 	// Test malformed commands
 	malformedCmds := []string{
-		"INVALID|package|",       // Unknown command
-		"INDEX||",                // Empty package name  
-		"INDEX",                  // Missing parts
-		"INDEX|package",          // Missing third part
+		"INVALID|package|",         // Unknown command
+		"INDEX||",                  // Empty package name
+		"INDEX",                    // Missing parts
+		"INDEX|package",            // Missing third part
 		"INDEX|package|deps|extra", // Too many parts
 	}
 

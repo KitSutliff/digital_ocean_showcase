@@ -4,13 +4,19 @@
 build:
 	go build -o package-indexer ./cmd/server
 
-# Run all tests with race detection
+# Run all tests with race detection (excludes test-suite)
 test:
-	go test -race ./...
+	go test -race -covermode=atomic -coverprofile=coverage.out ./internal/... ./cmd/... ./tests/...
 
-# Run tests with coverage
+# Run tests with coverage (excludes test-suite)
 test-coverage:
-	go test -cover ./...
+	go test -race -covermode=atomic -coverprofile=coverage.out ./internal/... ./cmd/... ./tests/...
+	go tool cover -func=coverage.out | tee coverage.txt
+	go tool cover -html=coverage.out -o coverage.html
+
+# Run all tests including test-suite (when explicitly needed)
+test-all:
+	go test -race ./internal/... ./cmd/... ./tests/... ./test-suite/...
 
 # Run the server
 run: build
