@@ -13,20 +13,32 @@ import (
 	"time"
 )
 
-// TestServer_HandleConnection_Lifecycle tests the full connection handling lifecycle
-func TestServer_HandleConnection_Lifecycle(t *testing.T) {
+// setupServerAndPipe creates a server, a piped client/server connection, starts
+// the connection handler, and returns the client side reader with a cleanup.
+func setupServerAndPipe(t *testing.T) (*Server, net.Conn, *bufio.Reader, func()) {
 	srv := NewServer(":0")
-
-	// Use net.Pipe for deterministic testing
 	clientConn, serverConn := net.Pipe()
-	defer clientConn.Close()
-	defer serverConn.Close()
 
-	// Test connection processing in goroutine (using new context-aware method)
 	srv.ctx, srv.cancel = context.WithCancel(context.Background())
-	defer srv.cancel()
+
+	// Start handler
 	srv.wg.Add(1)
 	go srv.handleConnection(serverConn)
+
+	reader := bufio.NewReader(clientConn)
+
+	cleanup := func() {
+		_ = clientConn.Close()
+		srv.cancel()
+	}
+
+	return srv, clientConn, reader, cleanup
+}
+
+// TestServer_HandleConnection_Lifecycle tests the full connection handling lifecycle
+func TestServer_HandleConnection_Lifecycle(t *testing.T) {
+	_, clientConn, reader, cleanup := setupServerAndPipe(t)
+	defer cleanup()
 
 	// Send valid commands and verify responses
 	commands := []struct {
@@ -38,8 +50,6 @@ func TestServer_HandleConnection_Lifecycle(t *testing.T) {
 		{"REMOVE|test|\n", "OK\n"},
 		{"INVALID|test|\n", "ERROR\n"},
 	}
-
-	reader := bufio.NewReader(clientConn)
 
 	for _, cmd := range commands {
 		// Send command
@@ -136,16 +146,8 @@ func TestServer_HandleConnection_ReadError(t *testing.T) {
 
 // TestServer_HandleConnection_LargeMessage tests handling of very large messages
 func TestServer_HandleConnection_LargeMessage(t *testing.T) {
-	srv := NewServer(":0")
-
-	clientConn, serverConn := net.Pipe()
-	defer clientConn.Close()
-	defer serverConn.Close()
-
-	srv.ctx, srv.cancel = context.WithCancel(context.Background())
-	defer srv.cancel()
-	srv.wg.Add(1)
-	go srv.handleConnection(serverConn)
+	_, clientConn, reader, cleanup := setupServerAndPipe(t)
+	defer cleanup()
 
 	// Create a large but valid command
 	largeDeps := strings.Repeat("dep", 1000)
@@ -155,7 +157,6 @@ func TestServer_HandleConnection_LargeMessage(t *testing.T) {
 	clientConn.Write([]byte(command))
 
 	// Read response
-	reader := bufio.NewReader(clientConn)
 	response, err := reader.ReadString('\n')
 	if err != nil {
 		t.Fatalf("Failed to read response: %v", err)
@@ -228,16 +229,8 @@ func TestServer_HandleConnection_ConcurrentConnections(t *testing.T) {
 
 // TestServer_HandleConnection_MalformedMessages tests various malformed message handling
 func TestServer_HandleConnection_MalformedMessages(t *testing.T) {
-	srv := NewServer(":0")
-
-	clientConn, serverConn := net.Pipe()
-	defer clientConn.Close()
-	defer serverConn.Close()
-
-	srv.ctx, srv.cancel = context.WithCancel(context.Background())
-	defer srv.cancel()
-	srv.wg.Add(1)
-	go srv.handleConnection(serverConn)
+	_, clientConn, reader, cleanup := setupServerAndPipe(t)
+	defer cleanup()
 
 	malformedMessages := []string{
 		"",                       // Empty message
@@ -249,8 +242,6 @@ func TestServer_HandleConnection_MalformedMessages(t *testing.T) {
 		"\n",                     // Just newline
 		"INDEX\n",                // Missing separators
 	}
-
-	reader := bufio.NewReader(clientConn)
 
 	for _, msg := range malformedMessages {
 		// Send malformed message
@@ -379,16 +370,8 @@ func (s *ServerWithListener) Start() error {
 
 // TestServer_HandleConnection_StreamingCommands tests handling of multiple commands in rapid succession
 func TestServer_HandleConnection_StreamingCommands(t *testing.T) {
-	srv := NewServer(":0")
-	srv.ctx, srv.cancel = context.WithCancel(context.Background())
-	defer srv.cancel()
-
-	clientConn, serverConn := net.Pipe()
-	defer clientConn.Close()
-	defer serverConn.Close()
-
-	srv.wg.Add(1)
-	go srv.handleConnection(serverConn)
+	_, clientConn, reader, cleanup := setupServerAndPipe(t)
+	defer cleanup()
 
 	// Send commands one by one and read responses to avoid pipe deadlock
 	commands := []struct {
@@ -402,8 +385,6 @@ func TestServer_HandleConnection_StreamingCommands(t *testing.T) {
 		{"REMOVE|app|\n", "OK\n"},
 		{"REMOVE|base|\n", "OK\n"},
 	}
-
-	reader := bufio.NewReader(clientConn)
 
 	for i, test := range commands {
 		// Send command
