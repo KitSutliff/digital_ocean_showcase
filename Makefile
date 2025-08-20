@@ -35,9 +35,13 @@ docker-build:
 docker-run: docker-build
 	docker run -p 8080:8080 package-indexer
 
-# Run test harness
+# Run test harness (local development)
 harness:
 	cd testing/scripts && ./run_harness.sh
+
+# Run test harness against Docker container (production validation)
+harness-docker:
+	cd testing/scripts && ./run_harness_docker.sh
 
 # Development helpers
 fmt:
