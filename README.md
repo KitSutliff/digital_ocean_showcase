@@ -83,8 +83,11 @@ make build
 # Run server
 make run
 
-# Run official test harness
+# Run official test harness (local development)
 make harness
+
+# Run test harness against Docker container (production validation)
+make harness-docker
 
 # Clean artifacts
 make clean
@@ -92,22 +95,41 @@ make clean
 
 ### Testing
 
+The project supports comprehensive testing at multiple levels:
+
+#### Development Testing (Local)
 ```bash
 # Unit tests
 go test ./internal/...
 
-# Integration tests
+# Integration tests  
 go test ./testing/integration
 
 # Race condition testing
 go test -race ./...
 
+# Official test harness (local binary)
+make harness
+
 # Stress testing
 cd testing/scripts && ./stress_test.sh
-
-# Cross-platform harness usage
-cd testing/scripts && HARNESS_BIN=../harness/do-package-tree_linux ./run_harness.sh
 ```
+
+#### Production Testing (Docker)
+```bash
+# Test against containerized environment
+make harness-docker
+
+# Build and test Docker image
+make docker-build && make harness-docker
+
+# Cross-platform harness usage (Docker)
+cd testing/scripts && HARNESS_BIN=../harness/do-package-tree_linux ./run_harness_docker.sh
+```
+
+**Local vs Docker Testing:**
+- **Local testing** (`make harness`): Fast iteration, debugging, development workflow
+- **Docker testing** (`make harness-docker`): Validates production deployment, health checks, containerization
 
 ## Architecture
 
@@ -140,14 +162,19 @@ Designed to handle:
 ### Benchmarks
 
 ```bash
-# Run official test harness at maximum concurrency
+# Run official test harness at maximum concurrency (local)
 cd testing/scripts && HARNESS_BIN=../harness/do-package-tree_darwin ./run_harness.sh -concurrency=100 -seed=42
+
+# Run official test harness at maximum concurrency (Docker - production environment)
+cd testing/scripts && HARNESS_BIN=../harness/do-package-tree_darwin ./run_harness_docker.sh -concurrency=100 -seed=42
 ```
 
 ## Production Considerations
 
 - **Security**: Runs as non-root user in Docker
-- **Health Checks**: Docker health check via TCP port connectivity probe
+- **Health Checks**: Docker health check via netcat TCP probe (`nc -z localhost 8080`)
+- **Testing**: Dual testing approach validates both development and production environments
+- **Containerization**: Multi-stage builds produce lean 23MB Alpine images  
 - **Monitoring**: Basic logging with connection lifecycle events
 - **Resource Usage**: Minimal memory footprint, efficient O(1) operations
 
