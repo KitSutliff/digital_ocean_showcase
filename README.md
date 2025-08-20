@@ -64,7 +64,7 @@ echo "QUERY|test|" | nc localhost 8080  # Returns "OK"
 
 ### Prerequisites
 
-- Go 1.19+
+- Go 1.22+
 - Docker (for containerization)
 - netcat (for testing)
 
@@ -97,16 +97,16 @@ make clean
 go test ./internal/...
 
 # Integration tests
-go test ./tests/integration
+go test ./testing/integration
 
 # Race condition testing
 go test -race ./...
 
 # Stress testing
-./scripts/stress_test.sh
+cd testing/scripts && ./stress_test.sh
 
 # Cross-platform harness usage
-HARNESS_BIN=./do-package-tree_linux ./scripts/run_harness.sh
+cd testing/scripts && HARNESS_BIN=../harness/do-package-tree_linux ./run_harness.sh
 ```
 
 ## Architecture
@@ -141,7 +141,7 @@ Designed to handle:
 
 ```bash
 # Run official test harness at maximum concurrency
-HARNESS_BIN=./do-package-tree_darwin ./scripts/run_harness.sh -concurrency=100 -seed=42
+cd testing/scripts && HARNESS_BIN=../harness/do-package-tree_darwin ./run_harness.sh -concurrency=100 -seed=42
 ```
 
 ## Production Considerations
@@ -166,16 +166,37 @@ Enable verbose logging by removing the `-quiet` flag when starting the server.
 ## Project Structure
 
 ```
-package-indexer/
-├── cmd/server/              # Main entry point
-├── internal/
-│   ├── indexer/            # Core dependency graph logic
-│   ├── wire/               # Protocol parsing  
-│   └── server/             # TCP connection handling
-├── tests/integration/       # End-to-end tests
-├── scripts/                # Build and test automation
-└── [Makefile, Dockerfile, README.md]
+digital_ocean_showcase/
+├── app/                     # Core Application
+│   └── cmd/server/         # Main entry point
+├── internal/               # Core application logic
+│   ├── indexer/           # Core dependency graph logic
+│   ├── server/            # TCP connection handling
+│   └── wire/              # Protocol parsing
+├── testing/               # Testing Infrastructure
+│   ├── harness/          # Test harness binaries
+│   ├── integration/      # End-to-end tests
+│   ├── scripts/          # Test automation scripts
+│   └── suite/            # Test framework
+├── development/           # Development Artifacts
+│   └── communications/   # Planning and design documents
+├── challenge/            # Original Challenge Materials
+│   ├── INSTRUCTIONS.md   # Challenge requirements
+│   └── source.tar.gz     # Original challenge files
+└── [Makefile, Dockerfile, README.md, go.mod]
 ```
+
+### Directory Guide
+
+- **`app/`**: Core application container with main entry point
+- **`internal/`**: Shared internal packages (indexer, server, wire protocol)
+- **`testing/`**: All testing-related code and tools
+  - `harness/`: Official test harness binaries for all platforms
+  - `integration/`: End-to-end integration tests
+  - `scripts/`: Test automation and verification scripts
+  - `suite/`: Additional test framework components
+- **`development/`**: Development artifacts and planning documents
+- **`challenge/`**: Original DigitalOcean challenge materials for reference
 
 ## License
 

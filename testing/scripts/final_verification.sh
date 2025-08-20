@@ -7,25 +7,25 @@ echo "================================================="
 
 # Clean previous builds
 echo "🧹 Cleaning previous builds..."
-make clean
+make -C ../.. clean
 
 # Run all tests with race detection
 echo "🧪 Running unit tests with race detection..."
-go test -race ./internal/...
+pushd ../.. && go test -race ./internal/... && popd
 
 echo "🧪 Running integration tests..."
-go test -race ./tests/integration/...
+pushd ../.. && go test -race ./testing/integration/... && popd
 
 echo "📊 Running tests with coverage..."
-go test -cover ./...
+pushd ../.. && go test -cover ./... && popd
 
 # Build the binary
 echo "🔨 Building server binary..."
-make build
+make -C ../.. build
 
 # Test basic functionality
 echo "🔌 Testing basic connectivity..."
-./package-indexer -quiet &
+../../package-indexer -quiet &
 SERVER_PID=$!
 sleep 2
 
@@ -42,11 +42,11 @@ echo "✅ Basic functionality verified!"
 
 # Run official test harness
 echo "🎯 Running official test harness..."
-./scripts/run_harness.sh
+./run_harness.sh
 
 # Run stress tests
 echo "💪 Running stress tests..."
-./scripts/stress_test.sh
+./stress_test.sh
 
 echo "✅ All verification tests passed!"
 echo "📦 Project is ready for submission!"

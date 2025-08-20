@@ -2,21 +2,21 @@
 
 # Build the server binary
 build:
-	go build -o package-indexer ./cmd/server
+	go build -o package-indexer ./app/cmd/server
 
 # Run all tests with race detection (excludes test-suite)
 test:
-	go test -race -covermode=atomic -coverprofile=coverage.out ./internal/... ./cmd/... ./tests/...
+	go test -race -covermode=atomic -coverprofile=coverage.out ./internal/... ./app/cmd/... ./testing/integration/...
 
 # Run tests with coverage (excludes test-suite)
 test-coverage:
-	go test -race -covermode=atomic -coverprofile=coverage.out ./internal/... ./cmd/... ./tests/...
+	go test -race -covermode=atomic -coverprofile=coverage.out ./internal/... ./app/cmd/... ./testing/integration/...
 	go tool cover -func=coverage.out | tee coverage.txt
 	go tool cover -html=coverage.out -o coverage.html
 
 # Run all tests including test-suite (when explicitly needed)
 test-all:
-	go test -race ./internal/... ./cmd/... ./tests/... ./test-suite/...
+	go test -race ./internal/... ./app/cmd/... ./testing/integration/... ./testing/suite/...
 
 # Run the server
 run: build
@@ -37,7 +37,7 @@ docker-run: docker-build
 
 # Run test harness
 harness:
-	./scripts/run_harness.sh
+	cd testing/scripts && ./run_harness.sh
 
 # Development helpers
 fmt:

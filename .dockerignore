@@ -1,0 +1,12 @@
+.git
+development/
+testing/
+challenge/
+coverage*
+coverage.*
+*.out
+*.html
+package-indexer
+do-package-tree_*
+communications/
+README.md
