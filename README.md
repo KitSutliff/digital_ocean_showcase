@@ -248,7 +248,8 @@ cd testing/scripts && ./chaos_test.sh
 - **Security**: Runs as non-root user in Docker
 - **Health Checks**: Docker health check via netcat TCP probe (`nc -z localhost 8080`)
 - **Testing**: Dual testing approach validates both development and production environments
-- **Containerization**: Multi-stage builds with pinned Ubuntu base (ubuntu:22.04)\n- **Graceful Shutdown**: Handles SIGTERM/SIGINT signals, closes connections cleanly
+- **Containerization**: Multi-stage builds with pinned Ubuntu base (ubuntu:24.04)
+- **Graceful Shutdown**: Handles SIGTERM/SIGINT signals, closes connections cleanly
 - **Monitoring**: Structured JSON logging with connection IDs, client addresses, and contextual fields
 - **Resource Usage**: Minimal memory footprint, efficient O(1) operations
 

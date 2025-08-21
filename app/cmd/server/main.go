@@ -108,7 +108,6 @@ func run() error {
 	}
 
 	// Initiate graceful shutdown with timeout
-	slog.Info("Initiating graceful shutdown...")
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), *shutdownTimeoutFlag)
 	defer shutdownCancel()
 
