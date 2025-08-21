@@ -309,7 +309,7 @@ func TestAdminServer_StartupShutdown(t *testing.T) {
 	listener.Close()
 
 	// Create a mock server for admin server to use
-	srv := server.NewServer(":0")
+	srv := server.NewServer(":0", 30*time.Second)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -348,7 +348,7 @@ func TestAdminServer_HealthzEndpoint(t *testing.T) {
 	adminAddr := listener.Addr().String()
 	listener.Close()
 
-	srv := server.NewServer(":0")
+	srv := server.NewServer(":0", 30*time.Second)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -447,7 +447,7 @@ func TestAdminServer_MetricsEndpoint(t *testing.T) {
 	adminAddr := listener.Addr().String()
 	listener.Close()
 
-	srv := server.NewServer(":0")
+	srv := server.NewServer(":0", 30*time.Second)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -510,7 +510,7 @@ func TestAdminServer_BuildInfoEndpoint(t *testing.T) {
 	adminAddr := listener.Addr().String()
 	listener.Close()
 
-	srv := server.NewServer(":0")
+	srv := server.NewServer(":0", 30*time.Second)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -570,7 +570,7 @@ func TestAdminServer_PprofEndpoints(t *testing.T) {
 	adminAddr := listener.Addr().String()
 	listener.Close()
 
-	srv := server.NewServer(":0")
+	srv := server.NewServer(":0", 30*time.Second)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -641,7 +641,7 @@ func TestAdminServer_DisabledByDefault(t *testing.T) {
 	// Verify that no admin server would be started (simulate the conditional)
 	var adminServer *http.Server
 	if *adminAddr != "" {
-		srv := server.NewServer(*addr)
+		srv := server.NewServer(*addr, 30*time.Second)
 		ctx := context.Background()
 		adminServer = startAdminServer(ctx, *adminAddr, srv)
 	}
@@ -670,7 +670,7 @@ func TestAdminServer_Integration(t *testing.T) {
 	adminListener.Close()
 
 	// Start main server
-	srv := server.NewServer(mainAddr)
+	srv := server.NewServer(mainAddr, 30*time.Second)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

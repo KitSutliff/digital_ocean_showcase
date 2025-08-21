@@ -23,7 +23,7 @@ import (
 
 // Server configuration constants
 const (
-	shutdownTimeout = 30 * time.Second
+	defaultShutdownTimeout = 30 * time.Second
 )
 
 // Prometheus metric definitions
@@ -58,6 +58,8 @@ func run() error {
 	addr := flag.String("addr", ":8080", "Server listen address")
 	quiet := flag.Bool("quiet", false, "Disable logging for performance")
 	adminAddr := flag.String("admin", "", "Admin HTTP server address (disabled if empty)")
+	shutdownTimeoutFlag := flag.Duration("shutdown-timeout", defaultShutdownTimeout, "Graceful shutdown timeout")
+	readTimeoutFlag := flag.Duration("read-timeout", 30*time.Second, "Connection read timeout")
 	flag.Parse()
 
 	// Setup structured logging
@@ -80,7 +82,7 @@ func run() error {
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
 	// Create and start main TCP server
-	srv := server.NewServer(*addr)
+	srv := server.NewServer(*addr, *readTimeoutFlag)
 	serverErr := make(chan error, 1)
 	go func() {
 		slog.Info("Starting package indexer server", "addr", *addr)
@@ -103,7 +105,7 @@ func run() error {
 
 	// Initiate graceful shutdown with timeout
 	slog.Info("Initiating graceful shutdown...")
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), *shutdownTimeoutFlag)
 	defer shutdownCancel()
 
 	// Shutdown main server

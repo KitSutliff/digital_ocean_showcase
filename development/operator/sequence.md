@@ -5,7 +5,7 @@ This diagram provides a comprehensive trace of every function call in the packag
 ## Overview
 
 The sequence diagram captures:
-- **Server Startup Phase**: Command-line parsing, context setup, signal handling, TCP listener initialization, and optional admin server startup
+- **Server Startup Phase**: Command-line parsing (including timeout configuration), context setup, signal handling, TCP listener initialization, and optional admin server startup
 - **Connection Handling Phase**: Accept loop, per-connection goroutines, and lifecycle management  
 - **Message Processing**: Protocol parsing, command validation, and business logic execution
 - **Core Operations**: INDEX (dependency validation), REMOVE (dependent checking), QUERY (lookup)
@@ -51,12 +51,12 @@ sequenceDiagram
     %% Startup Sequence
     Note over Main, Conn: Server Startup Phase
     Main->>Run: main() calls run()
-    Run->>Run: flag.Parse() - parse command flags (-addr, -quiet, -admin)
+    Run->>Run: flag.Parse() - parse command flags (-addr, -quiet, -admin, -read-timeout, -shutdown-timeout)
     Run->>Run: context.WithCancel() - create cancellable context
     Run->>Run: signal.Notify() - setup SIGINT/SIGTERM handlers
     
     %% Server Creation
-    Run->>Server: server.NewServer(addr)
+    Run->>Server: server.NewServer(addr, readTimeoutFlag)
     Server->>Indexer: indexer.NewIndexer()
     Indexer->>Indexer: Initialize indexed StringSet
     Indexer->>Indexer: Initialize dependencies map[string]StringSet
@@ -66,6 +66,7 @@ sequenceDiagram
     Metrics->>Metrics: time.Now() - record StartTime
     Metrics-->>Server: return *Metrics
     Server->>Server: make(chan bool) - create ready channel
+    Server->>Server: store readTimeout parameter for connection handling
     Server-->>Run: return *Server
 
     %% Server Start
@@ -121,13 +122,21 @@ sequenceDiagram
         Server->>Server: logger.Info("Client connected")
         Server->>Metrics: IncrementConnections()
         Metrics->>Metrics: atomic.AddInt64(&ConnectionsTotal, 1)
-        Server->>Conn: conn.SetReadDeadline(readTimeout)
+        Server->>Conn: conn.SetReadDeadline(s.readTimeout) - set configurable timeout
+        alt SetReadDeadline error
+            Conn-->>Server: return error
+            Server->>Server: logger.Warn("Failed to set initial read deadline", "error", err)
+        end
         Server->>Server: bufio.NewReader(conn) - create buffered reader
         Server->>Server: spawn graceful shutdown goroutine for connection
         
         %% Message Processing Loop
         loop Message Processing
-            Server->>Conn: conn.SetReadDeadline() - reset timeout
+            Server->>Conn: conn.SetReadDeadline(s.readTimeout) - reset configurable timeout
+            alt SetReadDeadline error
+                Conn-->>Server: return error
+                Server->>Server: logger.Warn("Failed to set read deadline", "error", err)
+            end
             Server->>Conn: reader.ReadString('\n') - read client message
             
             alt Message Received Successfully
@@ -273,7 +282,8 @@ sequenceDiagram
     
     %% Graceful Shutdown Sequence
     Note over Main, Conn: Graceful Shutdown Phase
-    Run->>Run: <-stop signal received (SIGINT/SIGTERM)
+    Run->>Run: stop signal received (SIGINT/SIGTERM)
+    Run->>Run: context.WithTimeout(shutdownTimeoutFlag) - create shutdown context with configurable timeout
     Run->>Server: srv.Shutdown(shutdownCtx)
     Server->>Server: cancel context - signal all connections to stop
     Server->>Listener: listener.Close() - stop accepting new connections
@@ -286,7 +296,7 @@ sequenceDiagram
     end
     
     loop All active connections
-        Server->>Conn: <-ctx.Done() triggers connection cleanup
+        Server->>Conn: ctx.Done() triggers connection cleanup
         Conn->>Conn: conn.Close() - close individual connections
         Conn->>Server: wg.Done() - signal completion
     end

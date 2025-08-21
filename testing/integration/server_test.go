@@ -53,7 +53,7 @@ func (c *testClient) close() error {
 
 // startTestServer starts a server in a goroutine for testing
 func startTestServer(addr string) {
-	srv := server.NewServer(addr)
+	srv := server.NewServer(addr, 30*time.Second)
 	go func() {
 		if err := srv.Start(); err != nil {
 			panic(fmt.Sprintf("Test server failed: %v", err))

@@ -151,7 +151,7 @@ func TestMetrics_MultipleSnapshots(t *testing.T) {
 }
 
 func TestServer_MetricsIntegration(t *testing.T) {
-	srv := NewServer(":0")
+	srv := NewServer(":0", 30*time.Second)
 
 	// Verify server has metrics
 	if srv.metrics == nil {

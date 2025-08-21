@@ -61,6 +61,9 @@ make run
 # Run with admin server for observability (optional)
 ./package-indexer -admin :9090
 
+# Run with custom timeout configurations
+./package-indexer -read-timeout 60s -shutdown-timeout 45s
+
 # Test basic functionality
 echo "INDEX|test|" | nc localhost 8080  # Returns "OK"
 echo "QUERY|test|" | nc localhost 8080  # Returns "OK"
@@ -132,6 +135,28 @@ make fmt          # Format code
 make deps         # Tidy dependencies
 make test-all     # Run all tests including test-suite
 ```
+
+### Configuration Options
+
+The server supports several command-line flags for production tuning:
+
+```bash
+# Basic configuration
+./package-indexer -addr :8080 -quiet
+
+# Timeout configuration (important for production environments)
+./package-indexer -read-timeout 60s -shutdown-timeout 45s
+
+# Full production configuration with observability
+./package-indexer -addr :8080 -admin :9090 -read-timeout 60s -shutdown-timeout 45s -quiet
+```
+
+**Configuration Flags:**
+- `-addr`: Server listen address (default `:8080`)
+- `-admin`: Admin HTTP server address for observability (disabled if empty)
+- `-quiet`: Disable logging for performance testing
+- `-read-timeout`: Connection read timeout to prevent slowloris attacks (default `30s`)
+- `-shutdown-timeout`: Graceful shutdown timeout (default `30s`)
 
 ### Testing
 

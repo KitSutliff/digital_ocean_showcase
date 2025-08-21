@@ -26,30 +26,27 @@ var nextConnID uint64
 // Architecture decision: This approach provides natural connection lifecycle management and scales
 // well to the required 100+ concurrent clients while maintaining operational simplicity.
 type Server struct {
-	indexer  *indexer.Indexer
-	addr     string
-	listener net.Listener
-	wg       sync.WaitGroup // Tracks active connections for graceful shutdown
-	mu       sync.Mutex
-	ctx      context.Context
-	cancel   context.CancelFunc
-	metrics  *Metrics
-	ready    chan bool // Signals when the listener is ready for connections
-	isReady  atomic.Bool
+	indexer     *indexer.Indexer
+	addr        string
+	listener    net.Listener
+	wg          sync.WaitGroup // Tracks active connections for graceful shutdown
+	mu          sync.Mutex
+	ctx         context.Context
+	cancel      context.CancelFunc
+	metrics     *Metrics
+	ready       chan bool // Signals when the listener is ready for connections
+	isReady     atomic.Bool
+	readTimeout time.Duration // Configurable per-read deadline to prevent slowloris attacks
 }
 
-// Timeout configuration for connection read operations
-const (
-	readTimeout = 30 * time.Second // Per-read deadline to prevent slowloris attacks
-)
-
 // NewServer creates a new server instance
-func NewServer(addr string) *Server {
+func NewServer(addr string, readTimeout time.Duration) *Server {
 	return &Server{
-		indexer: indexer.NewIndexer(),
-		addr:    addr,
-		metrics: NewMetrics(),
-		ready:   make(chan bool),
+		indexer:     indexer.NewIndexer(),
+		addr:        addr,
+		metrics:     NewMetrics(),
+		ready:       make(chan bool),
+		readTimeout: readTimeout,
 	}
 }
 
@@ -131,7 +128,9 @@ func (s *Server) serveConn(ctx context.Context, conn net.Conn, connID uint64) {
 	s.metrics.IncrementConnections()
 
 	// Initial deadline to prevent slowloris attacks
-	_ = conn.SetReadDeadline(time.Now().Add(readTimeout))
+	if err := conn.SetReadDeadline(time.Now().Add(s.readTimeout)); err != nil {
+		logger.Warn("Failed to set initial read deadline", "error", err)
+	}
 
 	reader := bufio.NewReader(conn)
 
@@ -149,7 +148,9 @@ func (s *Server) serveConn(ctx context.Context, conn net.Conn, connID uint64) {
 
 	for {
 		// Reset deadline on each read
-		_ = conn.SetReadDeadline(time.Now().Add(readTimeout))
+		if err := conn.SetReadDeadline(time.Now().Add(s.readTimeout)); err != nil {
+			logger.Warn("Failed to set read deadline", "error", err)
+		}
 
 		// Read line from client
 		line, err := reader.ReadString('\n')
