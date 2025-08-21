@@ -133,9 +133,7 @@ func (s *Server) serveConn(ctx context.Context, conn net.Conn, connID uint64) {
 	s.metrics.IncrementConnections()
 
 	// Initial deadline to prevent slowloris attacks
-	if err := conn.SetReadDeadline(time.Now().Add(s.readTimeout)); err != nil {
-		logger.Warn("Failed to set initial read deadline", "error", err)
-	}
+	s.setConnectionDeadline(conn, logger, "initial")
 
 	reader := bufio.NewReader(conn)
 
@@ -153,9 +151,7 @@ func (s *Server) serveConn(ctx context.Context, conn net.Conn, connID uint64) {
 
 	for {
 		// Reset deadline on each read
-		if err := conn.SetReadDeadline(time.Now().Add(s.readTimeout)); err != nil {
-			logger.Warn("Failed to set read deadline", "error", err)
-		}
+		s.setConnectionDeadline(conn, logger, "reset")
 
 		// Read line from client
 		line, err := reader.ReadString('\n')
@@ -179,6 +175,13 @@ func (s *Server) serveConn(ctx context.Context, conn net.Conn, connID uint64) {
 			logger.Warn("Error writing response to client", "error", err)
 			return
 		}
+	}
+}
+
+// setConnectionDeadline sets the read deadline and logs any errors with context
+func (s *Server) setConnectionDeadline(conn net.Conn, logger *slog.Logger, context string) {
+	if err := conn.SetReadDeadline(time.Now().Add(s.readTimeout)); err != nil {
+		logger.Warn("Failed to set read deadline", "error", err, "context", context)
 	}
 }
 

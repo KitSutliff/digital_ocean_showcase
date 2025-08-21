@@ -122,20 +122,24 @@ sequenceDiagram
         Server->>Server: logger.Info("Client connected")
         Server->>Metrics: IncrementConnections()
         Metrics->>Metrics: atomic.AddInt64(&ConnectionsTotal, 1)
+        Server->>Server: setConnectionDeadline(conn, logger, "initial")
+        Note over Server: Helper method eliminates duplicate error handling
         Server->>Conn: conn.SetReadDeadline(s.readTimeout) - set configurable timeout
         alt SetReadDeadline error
             Conn-->>Server: return error
-            Server->>Server: logger.Warn("Failed to set initial read deadline", "error", err)
+            Server->>Server: logger.Warn("Failed to set read deadline", "error", err, "context", "initial")
         end
         Server->>Server: bufio.NewReader(conn) - create buffered reader
         Server->>Server: spawn graceful shutdown goroutine for connection
         
         %% Message Processing Loop
         loop Message Processing
+            Server->>Server: setConnectionDeadline(conn, logger, "reset")
+            Note over Server: Reuses helper method for consistent error handling
             Server->>Conn: conn.SetReadDeadline(s.readTimeout) - reset configurable timeout
             alt SetReadDeadline error
                 Conn-->>Server: return error
-                Server->>Server: logger.Warn("Failed to set read deadline", "error", err)
+                Server->>Server: logger.Warn("Failed to set read deadline", "error", err, "context", "reset")
             end
             Server->>Conn: reader.ReadString('\n') - read client message
             
