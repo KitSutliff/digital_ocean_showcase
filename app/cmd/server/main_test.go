@@ -1,14 +1,21 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"flag"
+	"fmt"
 	"io"
 	"log"
+	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
 	"testing"
 	"time"
+
+	"package-indexer/internal/server"
 )
 
 // TestMain_FlagParsing tests the flag parsing logic by extracting it into a testable function
@@ -22,36 +29,49 @@ func TestMain_FlagParsing(t *testing.T) {
 		args          []string
 		expectedAddr  string
 		expectedQuiet bool
+		expectedAdmin string
 	}{
 		{
 			name:          "Default values",
 			args:          []string{"program"},
 			expectedAddr:  ":8080",
 			expectedQuiet: false,
+			expectedAdmin: "",
 		},
 		{
 			name:          "Custom address",
 			args:          []string{"program", "-addr", ":9090"},
 			expectedAddr:  ":9090",
 			expectedQuiet: false,
+			expectedAdmin: "",
 		},
 		{
 			name:          "Quiet mode enabled",
 			args:          []string{"program", "-quiet"},
 			expectedAddr:  ":8080",
 			expectedQuiet: true,
+			expectedAdmin: "",
 		},
 		{
-			name:          "Both flags set",
-			args:          []string{"program", "-addr", ":7070", "-quiet"},
+			name:          "Admin server enabled",
+			args:          []string{"program", "-admin", ":9091"},
+			expectedAddr:  ":8080",
+			expectedQuiet: false,
+			expectedAdmin: ":9091",
+		},
+		{
+			name:          "All flags set",
+			args:          []string{"program", "-addr", ":7070", "-quiet", "-admin", ":9091"},
 			expectedAddr:  ":7070",
 			expectedQuiet: true,
+			expectedAdmin: ":9091",
 		},
 		{
 			name:          "Long form flags",
-			args:          []string{"program", "-addr=:6060", "-quiet=true"},
+			args:          []string{"program", "-addr=:6060", "-quiet=true", "-admin=:9092"},
 			expectedAddr:  ":6060",
 			expectedQuiet: true,
+			expectedAdmin: ":9092",
 		},
 	}
 
@@ -66,6 +86,7 @@ func TestMain_FlagParsing(t *testing.T) {
 			// Parse flags (simulate what main() does)
 			addr := flag.String("addr", ":8080", "Server listen address")
 			quiet := flag.Bool("quiet", false, "Disable logging for performance")
+			adminAddr := flag.String("admin", "", "Admin HTTP server address (disabled if empty)")
 			flag.Parse()
 
 			// Check results
@@ -75,6 +96,9 @@ func TestMain_FlagParsing(t *testing.T) {
 
 			if *quiet != test.expectedQuiet {
 				t.Errorf("Expected quiet %t, got %t", test.expectedQuiet, *quiet)
+			}
+			if *adminAddr != test.expectedAdmin {
+				t.Errorf("Expected admin %q, got %q", test.expectedAdmin, *adminAddr)
 			}
 		})
 	}
@@ -226,5 +250,352 @@ func BenchmarkFlagParsing(b *testing.B) {
 		// Prevent optimization from removing the variables
 		_ = *addr
 		_ = *quiet
+	}
+}
+
+// TestAdminServer_StartupShutdown tests the admin server lifecycle
+func TestAdminServer_StartupShutdown(t *testing.T) {
+	// Find available port for testing
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatalf("Failed to find available port: %v", err)
+	}
+	adminAddr := listener.Addr().String()
+	listener.Close()
+
+	// Create a mock server for admin server to use
+	srv := server.NewServer(":0")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Start admin server
+	adminServer := startAdminServer(ctx, adminAddr, srv)
+	defer func() {
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer shutdownCancel()
+		adminServer.Shutdown(shutdownCtx)
+	}()
+
+	// Give server time to start
+	time.Sleep(100 * time.Millisecond)
+
+	// Test that server is running by making a request
+	resp, err := http.Get(fmt.Sprintf("http://%s/healthz", adminAddr))
+	if err != nil {
+		t.Fatalf("Admin server not responding: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	}
+}
+
+// TestAdminServer_HealthzEndpoint tests the health check endpoint
+func TestAdminServer_HealthzEndpoint(t *testing.T) {
+	// Setup
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatalf("Failed to find available port: %v", err)
+	}
+	adminAddr := listener.Addr().String()
+	listener.Close()
+
+	srv := server.NewServer(":0")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	adminServer := startAdminServer(ctx, adminAddr, srv)
+	defer func() {
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer shutdownCancel()
+		adminServer.Shutdown(shutdownCtx)
+	}()
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Test healthz endpoint
+	resp, err := http.Get(fmt.Sprintf("http://%s/healthz", adminAddr))
+	if err != nil {
+		t.Fatalf("Failed to call healthz endpoint: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Check status code
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	}
+
+	// Check content type
+	contentType := resp.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		t.Errorf("Expected Content-Type application/json, got %s", contentType)
+	}
+
+	// Parse and validate response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed to read response body: %v", err)
+	}
+
+	var healthResp map[string]interface{}
+	if err := json.Unmarshal(body, &healthResp); err != nil {
+		t.Fatalf("Failed to parse JSON response: %v", err)
+	}
+
+	// Validate response structure
+	expectedFields := []string{"status", "readiness", "liveness"}
+	for _, field := range expectedFields {
+		if _, exists := healthResp[field]; !exists {
+			t.Errorf("Missing field %s in health response", field)
+		}
+	}
+
+	// Validate values
+	if healthResp["status"] != "healthy" {
+		t.Errorf("Expected status 'healthy', got %v", healthResp["status"])
+	}
+	if healthResp["readiness"] != true {
+		t.Errorf("Expected readiness true, got %v", healthResp["readiness"])
+	}
+	if healthResp["liveness"] != true {
+		t.Errorf("Expected liveness true, got %v", healthResp["liveness"])
+	}
+}
+
+// TestAdminServer_MetricsEndpoint tests the metrics endpoint
+func TestAdminServer_MetricsEndpoint(t *testing.T) {
+	// Setup
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatalf("Failed to find available port: %v", err)
+	}
+	adminAddr := listener.Addr().String()
+	listener.Close()
+
+	srv := server.NewServer(":0")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	adminServer := startAdminServer(ctx, adminAddr, srv)
+	defer func() {
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer shutdownCancel()
+		adminServer.Shutdown(shutdownCtx)
+	}()
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Test metrics endpoint
+	resp, err := http.Get(fmt.Sprintf("http://%s/metrics", adminAddr))
+	if err != nil {
+		t.Fatalf("Failed to call metrics endpoint: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Check status and content type
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		t.Errorf("Expected Content-Type application/json, got %s", contentType)
+	}
+
+	// Parse response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed to read response body: %v", err)
+	}
+
+	var metrics map[string]interface{}
+	if err := json.Unmarshal(body, &metrics); err != nil {
+		t.Fatalf("Failed to parse JSON response: %v", err)
+	}
+
+	// Validate expected metrics fields
+	expectedFields := []string{"ConnectionsTotal", "CommandsProcessed", "ErrorCount", "PackagesIndexed", "Uptime"}
+	for _, field := range expectedFields {
+		if _, exists := metrics[field]; !exists {
+			t.Errorf("Missing field %s in metrics response", field)
+		}
+	}
+}
+
+// TestAdminServer_PprofEndpoints tests the pprof debugging endpoints
+func TestAdminServer_PprofEndpoints(t *testing.T) {
+	// Setup
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatalf("Failed to find available port: %v", err)
+	}
+	adminAddr := listener.Addr().String()
+	listener.Close()
+
+	srv := server.NewServer(":0")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	adminServer := startAdminServer(ctx, adminAddr, srv)
+	defer func() {
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer shutdownCancel()
+		adminServer.Shutdown(shutdownCtx)
+	}()
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Test pprof endpoints
+	pprofEndpoints := []struct {
+		path           string
+		expectedStatus int
+	}{
+		{"/debug/pprof/", http.StatusOK},
+		{"/debug/pprof/cmdline", http.StatusOK},
+		{"/debug/pprof/symbol", http.StatusOK},
+		// Note: profile and trace endpoints require special handling/parameters
+	}
+
+	for _, endpoint := range pprofEndpoints {
+		t.Run(endpoint.path, func(t *testing.T) {
+			resp, err := http.Get(fmt.Sprintf("http://%s%s", adminAddr, endpoint.path))
+			if err != nil {
+				t.Fatalf("Failed to call %s endpoint: %v", endpoint.path, err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != endpoint.expectedStatus {
+				t.Errorf("Expected status %d for %s, got %d",
+					endpoint.expectedStatus, endpoint.path, resp.StatusCode)
+			}
+		})
+	}
+}
+
+// TestAdminServer_DisabledByDefault tests that admin server is disabled by default
+func TestAdminServer_DisabledByDefault(t *testing.T) {
+	// Simulate run() without admin flag
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+
+	os.Args = []string{"program"} // No admin flag
+
+	// Parse flags
+	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	addr := flag.String("addr", ":8080", "Server listen address")
+	quiet := flag.Bool("quiet", false, "Disable logging for performance")
+	adminAddr := flag.String("admin", "", "Admin HTTP server address (disabled if empty)")
+	flag.Parse()
+
+	// Verify admin is disabled by default
+	if *adminAddr != "" {
+		t.Errorf("Expected admin server to be disabled by default, got %s", *adminAddr)
+	}
+
+	// Verify other defaults are as expected
+	if *addr != ":8080" {
+		t.Errorf("Expected default addr \":8080\", got %s", *addr)
+	}
+	if *quiet != false {
+		t.Errorf("Expected default quiet false, got %v", *quiet)
+	}
+
+	// Verify that no admin server would be started (simulate the conditional)
+	var adminServer *http.Server
+	if *adminAddr != "" {
+		srv := server.NewServer(*addr)
+		ctx := context.Background()
+		adminServer = startAdminServer(ctx, *adminAddr, srv)
+	}
+
+	if adminServer != nil {
+		t.Error("Admin server should not be started when flag is empty")
+	}
+}
+
+// TestAdminServer_Integration tests admin server with main server integration
+func TestAdminServer_Integration(t *testing.T) {
+	// This is a more complex integration test
+	// Find available ports
+	mainListener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatalf("Failed to find available port for main server: %v", err)
+	}
+	mainAddr := mainListener.Addr().String()
+	mainListener.Close()
+
+	adminListener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatalf("Failed to find available port for admin server: %v", err)
+	}
+	adminAddr := adminListener.Addr().String()
+	adminListener.Close()
+
+	// Start main server
+	srv := server.NewServer(mainAddr)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		srv.StartWithContext(ctx)
+	}()
+
+	// Start admin server
+	adminServer := startAdminServer(ctx, adminAddr, srv)
+	defer func() {
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer shutdownCancel()
+		adminServer.Shutdown(shutdownCtx)
+		srv.Shutdown(shutdownCtx)
+	}()
+
+	time.Sleep(200 * time.Millisecond) // Give servers time to start
+
+	// Send some commands to main server to generate metrics
+	conn, err := net.Dial("tcp", mainAddr)
+	if err != nil {
+		t.Fatalf("Failed to connect to main server: %v", err)
+	}
+	defer conn.Close()
+
+	// Send a command
+	if _, err := conn.Write([]byte("INDEX|test|\n")); err != nil {
+		t.Fatalf("Failed to send command: %v", err)
+	}
+
+	// Read response
+	response := make([]byte, 10)
+	if _, err := conn.Read(response); err != nil {
+		t.Fatalf("Failed to read response: %v", err)
+	}
+
+	// Check that metrics reflect the activity
+	resp, err := http.Get(fmt.Sprintf("http://%s/metrics", adminAddr))
+	if err != nil {
+		t.Fatalf("Failed to get metrics: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed to read metrics response: %v", err)
+	}
+
+	var metrics map[string]interface{}
+	if err := json.Unmarshal(body, &metrics); err != nil {
+		t.Fatalf("Failed to parse metrics JSON: %v", err)
+	}
+
+	// Verify that metrics show activity
+	connectionsTotal := metrics["ConnectionsTotal"].(float64)
+	commandsProcessed := metrics["CommandsProcessed"].(float64)
+
+	if connectionsTotal < 1 {
+		t.Errorf("Expected at least 1 connection, got %v", connectionsTotal)
+	}
+	if commandsProcessed < 1 {
+		t.Errorf("Expected at least 1 command processed, got %v", commandsProcessed)
 	}
 }

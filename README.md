@@ -53,12 +53,40 @@ make build
 make run
 
 # Run server in quiet mode (for performance testing)
-./package-indexer -quiet\n\n# Run server on specific address\n./package-indexer -addr :8080 -quiet
+./package-indexer -quiet
+
+# Run server on specific address
+./package-indexer -addr :8080 -quiet
+
+# Run with admin server for observability (optional)
+./package-indexer -admin :9090
 
 # Test basic functionality
 echo "INDEX|test|" | nc localhost 8080  # Returns "OK"
 echo "QUERY|test|" | nc localhost 8080  # Returns "OK"
 ```
+
+## Admin Server (Optional)
+
+The package indexer includes an optional HTTP admin server for production observability:
+
+```bash
+# Enable admin server on port 9090
+./package-indexer -admin :9090
+
+# Access endpoints
+curl http://localhost:9090/healthz    # Health check (readiness/liveness)
+curl http://localhost:9090/metrics   # Runtime metrics (JSON)
+curl http://localhost:9090/debug/pprof/ # pprof debugging endpoints
+```
+
+### Admin Endpoints
+
+- **`/healthz`** - Health check with readiness and liveness status
+- **`/metrics`** - Server metrics (connections, commands, errors, packages, uptime)
+- **`/debug/pprof/`** - Standard Go pprof endpoints for performance analysis
+
+**Note:** Admin server is disabled by default and has zero impact on the main TCP protocol or test harness compatibility.
 
 ## Development
 

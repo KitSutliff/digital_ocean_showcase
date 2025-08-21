@@ -5,20 +5,23 @@ This diagram provides a comprehensive trace of every function call in the packag
 ## Overview
 
 The sequence diagram captures:
-- **Server Startup Phase**: Command-line parsing, context setup, signal handling, and TCP listener initialization
+- **Server Startup Phase**: Command-line parsing, context setup, signal handling, TCP listener initialization, and optional admin server startup
 - **Connection Handling Phase**: Accept loop, per-connection goroutines, and lifecycle management  
 - **Message Processing**: Protocol parsing, command validation, and business logic execution
 - **Core Operations**: INDEX (dependency validation), REMOVE (dependent checking), QUERY (lookup)
-- **Graceful Shutdown Phase**: Context cancellation, connection cleanup, and resource management
+- **Admin Server Operations**: Optional HTTP endpoints for health checks, metrics, and pprof debugging
+- **Graceful Shutdown Phase**: Context cancellation, connection cleanup, and coordinated shutdown of both servers
 
 ## Technical Precision
 
 Every major function call is represented in execution order:
 - `main()` → `run()` → `server.NewServer()` → `server.StartWithContext()`
+- Optional observability: `startAdminServer()` → HTTP endpoints setup
 - Connection lifecycle: `Accept()` → `handleConnection()` → `serveConn()`
 - Message processing: `ReadString()` → `processCommand()` → `wire.ParseCommand()`
 - Business logic: `indexer.IndexPackage()` / `RemovePackage()` / `QueryPackage()`
 - Response flow: `wire.Response.String()` → `conn.Write()`
+- Coordinated shutdown: TCP server shutdown → Admin server shutdown
 
 ## Human Readability Features
 
@@ -38,6 +41,7 @@ sequenceDiagram
     participant Server as Server
     participant Indexer as Indexer
     participant Metrics as Metrics
+    participant Admin as Admin HTTP Server
     participant Listener as TCP Listener
     participant Client as Client Connection
     participant Wire as Wire Protocol
@@ -46,7 +50,7 @@ sequenceDiagram
     %% Startup Sequence
     Note over Main, Conn: Server Startup Phase
     Main->>Run: main() calls run()
-    Run->>Run: flag.Parse() - parse command flags (-addr, -quiet)
+    Run->>Run: flag.Parse() - parse command flags (-addr, -quiet, -admin)
     Run->>Run: context.WithCancel() - create cancellable context
     Run->>Run: signal.Notify() - setup SIGINT/SIGTERM handlers
     
@@ -76,6 +80,15 @@ sequenceDiagram
         Server->>Server: close(ready) - signal server is ready
     end
     Server->>Server: spawn shutdown goroutine monitoring ctx.Done()
+
+    %% Optional Admin Server Startup
+    alt Admin flag provided (-admin :9090)
+        Run->>Admin: startAdminServer(ctx, adminAddr, srv)
+        Admin->>Admin: create HTTP mux with /healthz, /metrics, pprof endpoints
+        Admin->>Admin: start HTTP server in goroutine
+        Admin->>Admin: log "Starting admin HTTP server on {addr}"
+        Admin-->>Run: return *http.Server
+    end
 
     %% Connection Accept Loop
     Note over Server, Conn: Connection Handling Phase
@@ -252,6 +265,12 @@ sequenceDiagram
     Server->>Server: cancel context - signal all connections to stop
     Server->>Listener: listener.Close() - stop accepting new connections
     Server->>Server: wg.Wait() - wait for all connections to complete
+    
+    alt Admin server running
+        Run->>Admin: adminServer.Shutdown(shutdownCtx)
+        Admin->>Admin: gracefully shutdown HTTP server
+        Admin-->>Run: return nil or timeout error
+    end
     
     loop All active connections
         Server->>Conn: <-ctx.Done() triggers connection cleanup
