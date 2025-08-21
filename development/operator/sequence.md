@@ -9,7 +9,7 @@ The sequence diagram captures:
 - **Connection Handling Phase**: Accept loop, per-connection goroutines, and lifecycle management  
 - **Message Processing**: Protocol parsing, command validation, and business logic execution
 - **Core Operations**: INDEX (dependency validation), REMOVE (dependent checking), QUERY (lookup)
-- **Admin Server Operations**: Optional HTTP endpoints for health checks, metrics, and pprof debugging
+- **Admin Server Operations**: Optional HTTP endpoints for health checks, metrics, build info, and pprof debugging
 - **Graceful Shutdown Phase**: Context cancellation, connection cleanup, and coordinated shutdown of both servers
 
 ## Technical Precision
@@ -87,6 +87,7 @@ sequenceDiagram
         Admin->>Admin: create HTTP ServeMux
         Admin->>Admin: mount /healthz handler (health check JSON response)
         Admin->>Admin: mount /metrics handler (srv.GetMetrics() as JSON)
+        Admin->>Admin: mount /buildinfo handler (build version and Go info as JSON)
         Admin->>Admin: mount /debug/pprof/ handler (pprof.Index)
         Admin->>Admin: mount /debug/pprof/cmdline handler (pprof.Cmdline)
         Admin->>Admin: mount /debug/pprof/profile handler (pprof.Profile)

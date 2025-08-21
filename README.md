@@ -77,13 +77,15 @@ The package indexer includes an optional HTTP admin server for production observ
 # Access endpoints
 curl http://localhost:9090/healthz    # Health check (readiness/liveness)
 curl http://localhost:9090/metrics   # Runtime metrics (JSON)
+curl http://localhost:9090/buildinfo # Build version and Go info (JSON)
 curl http://localhost:9090/debug/pprof/ # pprof debugging endpoints
 ```
 
 ### Admin Endpoints
 
 - **`/healthz`** - Health check with readiness and liveness status
-- **`/metrics`** - Server metrics (connections, commands, errors, packages, uptime)
+- **`/metrics`** - Server metrics (connections, commands, errors, packages, uptime)  
+- **`/buildinfo`** - Build information (Go version, module path, settings)
 - **`/debug/pprof/`** - Standard Go pprof endpoints for performance analysis
 
 **Note:** Admin server is disabled by default and has zero impact on the main TCP protocol or test harness compatibility.

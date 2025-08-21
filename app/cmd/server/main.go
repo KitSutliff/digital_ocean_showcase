@@ -14,6 +14,7 @@ import (
 	"net/http/pprof"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"syscall"
 	"time"
 
@@ -40,6 +41,9 @@ func run() error {
 	// Disable logging for performance in high-throughput scenarios
 	if *quiet {
 		log.SetOutput(io.Discard)
+	} else {
+		// High-fidelity timestamps for production logs
+		log.SetFlags(log.LstdFlags | log.LUTC | log.Lmicroseconds)
 	}
 
 	// Application context
@@ -122,6 +126,25 @@ func startAdminServer(ctx context.Context, addr string, srv *server.Server) *htt
 		w.Header().Set("Content-Type", "application/json")
 		metrics := srv.GetMetrics()
 		json.NewEncoder(w).Encode(metrics)
+	})
+
+	// Build info endpoint provides versioning details for release diagnostics
+	mux.HandleFunc("/buildinfo", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if info, ok := debug.ReadBuildInfo(); ok && info != nil {
+			resp := map[string]interface{}{
+				"main": map[string]string{
+					"path":    info.Path,
+					"version": info.Main.Version,
+					"sum":     info.Main.Sum,
+				},
+				"go_version": info.GoVersion,
+				"settings":   info.Settings,
+			}
+			json.NewEncoder(w).Encode(resp)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]string{"status": "unknown"})
 	})
 
 	// Standard pprof debugging endpoints explicitly mounted on admin server only

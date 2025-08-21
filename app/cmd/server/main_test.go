@@ -12,11 +12,54 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
 	"package-indexer/internal/server"
 )
+
+// Test constants to eliminate magic numbers
+const (
+	testServerStartupDelay = 200 * time.Millisecond
+	testShutdownTimeout    = 5 * time.Second
+)
+
+// isolateFlags preserves and restores global flag state for test isolation
+func isolateFlags(t *testing.T) func() {
+	t.Helper()
+	oldArgs := os.Args
+	oldFlag := flag.CommandLine
+	return func() {
+		os.Args = oldArgs
+		flag.CommandLine = oldFlag
+	}
+}
+
+// shutdownAdminServer creates a cleanup function for graceful admin server shutdown
+func shutdownAdminServer(adminServer *http.Server) func() {
+	return func() {
+		if adminServer != nil {
+			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), testShutdownTimeout)
+			defer shutdownCancel()
+			adminServer.Shutdown(shutdownCtx)
+		}
+	}
+}
+
+// shutdownBothServers creates a cleanup function for both main and admin servers
+func shutdownBothServers(srv *server.Server, adminServer *http.Server) func() {
+	return func() {
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), testShutdownTimeout)
+		defer shutdownCancel()
+		if adminServer != nil {
+			adminServer.Shutdown(shutdownCtx)
+		}
+		if srv != nil {
+			srv.Shutdown(shutdownCtx)
+		}
+	}
+}
 
 // TestMain_FlagParsing tests the flag parsing logic by extracting it into a testable function
 func TestMain_FlagParsing(t *testing.T) {
@@ -215,7 +258,7 @@ func TestMain_SuccessfulStartup(t *testing.T) {
 	}
 
 	// Give server time to start
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(testServerStartupDelay)
 
 	// Check if process is still running (indicates successful startup)
 	if cmd.Process == nil {
@@ -424,6 +467,66 @@ func TestAdminServer_MetricsEndpoint(t *testing.T) {
 	}
 }
 
+// TestAdminServer_BuildInfoEndpoint tests the build info endpoint
+func TestAdminServer_BuildInfoEndpoint(t *testing.T) {
+	// Setup
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatalf("Failed to find available port: %v", err)
+	}
+	adminAddr := listener.Addr().String()
+	listener.Close()
+
+	srv := server.NewServer(":0")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	adminServer := startAdminServer(ctx, adminAddr, srv)
+	defer shutdownAdminServer(adminServer)()
+
+	time.Sleep(testServerStartupDelay)
+
+	// Test buildinfo endpoint
+	resp, err := http.Get(fmt.Sprintf("http://%s/buildinfo", adminAddr))
+	if err != nil {
+		t.Fatalf("Failed to call buildinfo endpoint: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		t.Errorf("Expected Content-Type application/json, got %s", contentType)
+	}
+
+	// Parse response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed to read response body: %v", err)
+	}
+
+	var info map[string]interface{}
+	if err := json.Unmarshal(body, &info); err != nil {
+		t.Fatalf("Failed to parse JSON response: %v", err)
+	}
+
+	// Accept either populated build info or placeholder
+	if _, hasUnknown := info["status"]; hasUnknown {
+		if info["status"] != "unknown" {
+			t.Errorf("Expected status 'unknown' when build info unavailable, got %v", info["status"])
+		}
+		return
+	}
+
+	// When build info is available, validate expected fields
+	if _, ok := info["go_version"]; !ok {
+		t.Errorf("Missing go_version in buildinfo response")
+	}
+}
+
 // TestAdminServer_PprofEndpoints tests the pprof debugging endpoints
 func TestAdminServer_PprofEndpoints(t *testing.T) {
 	// Setup
@@ -544,14 +647,9 @@ func TestAdminServer_Integration(t *testing.T) {
 
 	// Start admin server
 	adminServer := startAdminServer(ctx, adminAddr, srv)
-	defer func() {
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer shutdownCancel()
-		adminServer.Shutdown(shutdownCtx)
-		srv.Shutdown(shutdownCtx)
-	}()
+	defer shutdownBothServers(srv, adminServer)()
 
-	time.Sleep(200 * time.Millisecond) // Give servers time to start
+	time.Sleep(testServerStartupDelay) // Give servers time to start
 
 	// Send some commands to main server to generate metrics
 	conn, err := net.Dial("tcp", mainAddr)
@@ -597,5 +695,57 @@ func TestAdminServer_Integration(t *testing.T) {
 	}
 	if commandsProcessed < 1 {
 		t.Errorf("Expected at least 1 command processed, got %v", commandsProcessed)
+	}
+}
+
+// TestRun_ServerError_InvalidAddr covers the run() error path when the TCP listener fails
+func TestRun_ServerError_InvalidAddr(t *testing.T) {
+	defer isolateFlags(t)()
+
+	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	os.Args = []string{"program", "-addr", "invalid-address"}
+
+	if err := run(); err == nil {
+		t.Fatal("expected run() to return error for invalid address, got nil")
+	}
+}
+
+// TestRun_GracefulShutdown_Signal covers the successful path where a shutdown signal is handled
+func TestRun_GracefulShutdown_Signal(t *testing.T) {
+	// Skip in short mode since this exercises timers and signals
+	if testing.Short() {
+		t.Skip("skipping graceful shutdown test in short mode")
+	}
+
+	defer isolateFlags(t)()
+
+	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	// Use :0 to let the OS select free ports for both servers
+	os.Args = []string{"program", "-addr", ":0", "-admin", ":0", "-quiet"}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- run()
+	}()
+
+	// Give the servers a brief moment to start
+	time.Sleep(testServerStartupDelay)
+
+	// Send SIGINT to trigger graceful shutdown path
+	p, err := os.FindProcess(os.Getpid())
+	if err != nil {
+		t.Fatalf("failed to find current process: %v", err)
+	}
+	if err := p.Signal(syscall.SIGINT); err != nil {
+		t.Fatalf("failed to send SIGINT: %v", err)
+	}
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("run() returned unexpected error: %v", err)
+		}
+	case <-time.After(testShutdownTimeout):
+		t.Fatal("timed out waiting for graceful shutdown")
 	}
 }

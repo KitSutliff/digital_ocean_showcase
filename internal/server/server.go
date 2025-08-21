@@ -27,6 +27,7 @@ type Server struct {
 	addr     string
 	listener net.Listener
 	wg       sync.WaitGroup // Tracks active connections for graceful shutdown
+	mu       sync.Mutex
 	ctx      context.Context
 	cancel   context.CancelFunc
 	metrics  *Metrics
@@ -55,21 +56,29 @@ func (s *Server) Start() error {
 
 // StartWithContext begins listening for connections with context support for graceful shutdown
 func (s *Server) StartWithContext(ctx context.Context) error {
+	s.mu.Lock()
 	s.ctx, s.cancel = context.WithCancel(ctx)
+	localCtx := s.ctx
+	s.mu.Unlock()
 
 	l, err := net.Listen("tcp", s.addr)
 	if err != nil {
 		close(s.ready) // Signal readiness even on failure to unblock tests
 		return fmt.Errorf("failed to listen on %s: %w", s.addr, err)
 	}
+	s.mu.Lock()
 	s.listener = l
+	s.mu.Unlock()
 	close(s.ready) // Signal that the listener is ready
 
 	// Close the listener when context is cancelled to unblock Accept
 	go func() {
-		<-s.ctx.Done()
-		if s.listener != nil {
-			_ = s.listener.Close()
+		<-localCtx.Done()
+		s.mu.Lock()
+		ln := s.listener
+		s.mu.Unlock()
+		if ln != nil {
+			_ = ln.Close()
 		}
 	}()
 
@@ -206,12 +215,17 @@ func (s *Server) GetMetrics() MetricsSnapshot {
 func (s *Server) Shutdown(ctx context.Context) error {
 	log.Printf("Initiating graceful shutdown...")
 
-	if s.cancel != nil {
-		s.cancel()
+	s.mu.Lock()
+	cancel := s.cancel
+	ln := s.listener
+	s.mu.Unlock()
+
+	if cancel != nil {
+		cancel()
 	}
 
-	if s.listener != nil {
-		s.listener.Close()
+	if ln != nil {
+		ln.Close()
 	}
 
 	// Wait for connections to finish or timeout
