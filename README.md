@@ -280,9 +280,12 @@ digital_ocean_showcase/
 │   ├── integration/      # End-to-end tests
 │   ├── scripts/          # Test automation scripts
 │   └── suite/            # Test framework
-├── development/           # Development Artifacts
-│   ├── agent/            # AI agent planning documents
-│   └── operator/         # Project management documents
+├── presentation/          # Project Documentation and Presentations
+│   ├── agent_coordination/   # AI agent coordination documents
+│   ├── design_decisions_log.md   # Architecture decisions
+│   ├── sequence.md           # System sequence diagram
+│   ├── sequence_diagram.svg  # Visual sequence diagram
+│   └── showcase.md           # Technical showcase document
 ├── challenge/            # Original Challenge Materials
 │   ├── INSTRUCTIONS.md   # Challenge requirements
 │   └── source.tar.gz     # Original challenge files
@@ -298,9 +301,12 @@ digital_ocean_showcase/
   - `integration/`: End-to-end integration tests
   - `scripts/`: Test automation and verification scripts
   - `suite/`: Additional test framework components
-- **`development/`**: Development artifacts and planning documents
-  - `agent/`: AI agent planning documents and implementation proposals  
-  - `operator/`: Project management and design decision logs
+- **`presentation/`**: Project documentation and technical presentations
+  - `agent_coordination/`: Multi-agent planning documents and implementation proposals
+  - `design_decisions_log.md`: Architecture decisions and design rationale
+  - `sequence.md`: System sequence diagram documentation
+  - `sequence_diagram.svg`: Visual sequence diagram
+  - `showcase.md`: Technical showcase and architecture overview
 - **`challenge/`**: Original DigitalOcean challenge materials for reference
 
 ## License
