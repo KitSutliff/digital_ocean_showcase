@@ -26,7 +26,7 @@ func waitFor(t *testing.T, timeout time.Duration, pred func() bool) {
 }
 
 func TestHandleConnection_ProcessAndShutdown(t *testing.T) {
-	s := NewServer(":0", 30*time.Second)
+	s := NewServer(":0", DefaultReadTimeout)
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 
 	client, server := net.Pipe()
@@ -68,7 +68,7 @@ func TestHandleConnection_ProcessAndShutdown(t *testing.T) {
 }
 
 func TestStartWithContext_GracefulShutdown(t *testing.T) {
-	s := NewServer("127.0.0.1:0", 30*time.Second)
+	s := NewServer("127.0.0.1:0", DefaultReadTimeout)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -117,7 +117,7 @@ func TestStartWithContext_GracefulShutdown(t *testing.T) {
 }
 
 func TestShutdown_TimeoutWhenConnectionsHung(t *testing.T) {
-	s := NewServer(":0", 30*time.Second)
+	s := NewServer(":0", DefaultReadTimeout)
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 
 	// Simulate a stuck connection by incrementing wg without a matching Done
@@ -150,7 +150,7 @@ func TestNewServer(t *testing.T) {
 }
 
 func TestServer_ProcessCommand(t *testing.T) {
-	srv := NewServer(":8080", 30*time.Second)
+	srv := NewServer(":8080", DefaultReadTimeout)
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
 
 	tests := []struct {
@@ -228,7 +228,7 @@ func TestServer_ProcessCommand(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			// Reset server state for clean test
-			srv = NewServer(":8080", 30*time.Second)
+			srv = NewServer(":8080", DefaultReadTimeout)
 
 			// For tests that depend on pre-existing state, set it up
 			if strings.Contains(test.input, "QUERY|test|") && test.expected == wire.OK {
@@ -254,7 +254,7 @@ func TestServer_ProcessCommand(t *testing.T) {
 }
 
 func TestServer_ProcessCommand_StatefulOperations(t *testing.T) {
-	srv := NewServer(":8080", 30*time.Second)
+	srv := NewServer(":8080", DefaultReadTimeout)
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
 
 	// Test sequence: INDEX -> QUERY -> INDEX with deps -> REMOVE with deps -> REMOVE
@@ -303,7 +303,7 @@ func TestServer_ProcessCommand_StatefulOperations(t *testing.T) {
 }
 
 func TestServer_ProcessCommand_Reindexing(t *testing.T) {
-	srv := NewServer(":8080", 30*time.Second)
+	srv := NewServer(":8080", DefaultReadTimeout)
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
 
 	// Set up dependencies
@@ -332,7 +332,7 @@ func TestServer_ProcessCommand_Reindexing(t *testing.T) {
 
 func TestServer_Start_InvalidAddress(t *testing.T) {
 	// Test with invalid address that should fail to bind
-	srv := NewServer("invalid-address:999999", 30*time.Second)
+	srv := NewServer("invalid-address:999999", DefaultReadTimeout)
 
 	// Start should return an error for invalid address
 	err := srv.Start()
@@ -357,7 +357,7 @@ func TestServer_Start_PortAlreadyInUse(t *testing.T) {
 	addr := listener.Addr().String()
 
 	// Try to start server on the same address
-	srv := NewServer(addr, 30*time.Second)
+	srv := NewServer(addr, DefaultReadTimeout)
 
 	// This should fail since the port is already in use
 	err = srv.Start()
@@ -376,7 +376,7 @@ func TestServer_Start_PortAlreadyInUse(t *testing.T) {
 // For unit testing, we focus on the processCommand logic which is the core business logic.
 
 func TestServer_ProcessCommand_EdgeCases(t *testing.T) {
-	srv := NewServer(":8080", 30*time.Second)
+	srv := NewServer(":8080", DefaultReadTimeout)
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
 
 	// Test with dependencies containing empty strings (trailing commas)

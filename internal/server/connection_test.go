@@ -18,7 +18,7 @@ import (
 // setupServerAndPipe creates a server, a piped client/server connection, starts
 // the connection handler, and returns the client side reader with a cleanup.
 func setupServerAndPipe(t *testing.T) (*Server, net.Conn, *bufio.Reader, func()) {
-	srv := NewServer(":0", 30*time.Second)
+	srv := NewServer(":0", DefaultReadTimeout)
 	clientConn, serverConn := net.Pipe()
 
 	srv.ctx, srv.cancel = context.WithCancel(context.Background())
@@ -74,7 +74,7 @@ func TestServer_HandleConnection_Lifecycle(t *testing.T) {
 
 // TestServer_HandleConnection_EOF tests graceful handling of client disconnection
 func TestServer_HandleConnection_EOF(t *testing.T) {
-	srv := NewServer(":0", 30*time.Second)
+	srv := NewServer(":0", DefaultReadTimeout)
 
 	clientConn, serverConn := net.Pipe()
 	defer serverConn.Close()
@@ -103,7 +103,7 @@ func TestServer_HandleConnection_EOF(t *testing.T) {
 
 // testConnectionErrorHandling is a helper for testing various connection error scenarios
 func testConnectionErrorHandling(t *testing.T, testName string, action func(net.Conn)) {
-	srv := NewServer(":0", 30*time.Second)
+	srv := NewServer(":0", DefaultReadTimeout)
 	clientConn, serverConn := net.Pipe()
 	defer serverConn.Close()
 
@@ -172,7 +172,7 @@ func TestServer_HandleConnection_LargeMessage(t *testing.T) {
 
 // TestServer_HandleConnection_ConcurrentConnections tests multiple simultaneous connections
 func TestServer_HandleConnection_ConcurrentConnections(t *testing.T) {
-	srv := NewServer(":0", 30*time.Second)
+	srv := NewServer(":0", DefaultReadTimeout)
 
 	const numConnections = 10
 	var wg sync.WaitGroup
@@ -184,7 +184,7 @@ func TestServer_HandleConnection_ConcurrentConnections(t *testing.T) {
 			defer wg.Done()
 
 			// Create a separate server instance for this connection to avoid context races
-			localSrv := NewServer(":0", 30*time.Second)
+			localSrv := NewServer(":0", DefaultReadTimeout)
 			localSrv.ctx, localSrv.cancel = context.WithCancel(context.Background())
 			defer localSrv.cancel()
 
@@ -340,7 +340,7 @@ func TestServer_Start_AcceptErrors(t *testing.T) {
 // NewServerWithListener creates a server with a pre-configured listener for testing
 func NewServerWithListener(l net.Listener) *ServerWithListener {
 	return &ServerWithListener{
-		server:   NewServer(l.Addr().String(), 30*time.Second),
+		server:   NewServer(l.Addr().String(), DefaultReadTimeout),
 		listener: l,
 	}
 }

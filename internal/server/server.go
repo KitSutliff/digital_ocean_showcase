@@ -39,6 +39,11 @@ type Server struct {
 	readTimeout time.Duration // Configurable per-read deadline to prevent slowloris attacks
 }
 
+// Default timeout configuration constants
+const (
+	DefaultReadTimeout = 30 * time.Second // Default per-read deadline to prevent slowloris attacks
+)
+
 // NewServer creates a new server instance
 func NewServer(addr string, readTimeout time.Duration) *Server {
 	return &Server{

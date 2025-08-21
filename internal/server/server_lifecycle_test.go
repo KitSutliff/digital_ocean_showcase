@@ -10,7 +10,7 @@ import (
 
 // TestServer_StartWithContext_Success tests successful server startup
 func TestServer_StartWithContext_Success(t *testing.T) {
-	srv := NewServer(":0", 30*time.Second) // Use any available port
+	srv := NewServer(":0", DefaultReadTimeout) // Use any available port
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -48,7 +48,7 @@ func TestServer_StartWithContext_Success(t *testing.T) {
 // TestServer_StartWithContext_ListenerError tests handling of listener creation errors
 func TestServer_StartWithContext_ListenerError(t *testing.T) {
 	// Use an invalid address that will fail to bind
-	srv := NewServer("invalid-address:999999", 30*time.Second)
+	srv := NewServer("invalid-address:999999", DefaultReadTimeout)
 
 	ctx := context.Background()
 	err := srv.StartWithContext(ctx)
@@ -64,7 +64,7 @@ func TestServer_StartWithContext_ListenerError(t *testing.T) {
 
 // TestServer_StartWithContext_CancelledContext tests behavior with pre-cancelled context
 func TestServer_StartWithContext_CancelledContext(t *testing.T) {
-	srv := NewServer(":0", 30*time.Second)
+	srv := NewServer(":0", DefaultReadTimeout)
 
 	// Create already-cancelled context
 	ctx, cancel := context.WithCancel(context.Background())
@@ -89,7 +89,7 @@ func TestServer_StartWithContext_CancelledContext(t *testing.T) {
 
 // TestServer_HandleConnection_ContextCancellation tests graceful shutdown via context
 func TestServer_HandleConnection_ContextCancellation(t *testing.T) {
-	srv := NewServer(":0", 30*time.Second)
+	srv := NewServer(":0", DefaultReadTimeout)
 	srv.ctx, srv.cancel = context.WithCancel(context.Background())
 
 	clientConn, serverConn := net.Pipe()
@@ -122,7 +122,7 @@ func TestServer_HandleConnection_ContextCancellation(t *testing.T) {
 
 // TestServer_Shutdown_Success tests successful graceful shutdown
 func TestServer_Shutdown_Success(t *testing.T) {
-	srv := NewServer(":0", 30*time.Second)
+	srv := NewServer(":0", DefaultReadTimeout)
 	srv.ctx, srv.cancel = context.WithCancel(context.Background())
 
 	// Create mock listener
@@ -157,7 +157,7 @@ func TestServer_Shutdown_Success(t *testing.T) {
 
 // TestServer_Shutdown_Timeout tests shutdown timeout behavior
 func TestServer_Shutdown_Timeout(t *testing.T) {
-	srv := NewServer(":0", 30*time.Second)
+	srv := NewServer(":0", DefaultReadTimeout)
 	srv.ctx, srv.cancel = context.WithCancel(context.Background())
 
 	// Create mock listener
@@ -190,7 +190,7 @@ func TestServer_Shutdown_Timeout(t *testing.T) {
 
 // TestServer_Shutdown_NoActiveConnections tests shutdown with no active connections
 func TestServer_Shutdown_NoActiveConnections(t *testing.T) {
-	srv := NewServer(":0", 30*time.Second)
+	srv := NewServer(":0", DefaultReadTimeout)
 	srv.ctx, srv.cancel = context.WithCancel(context.Background())
 
 	// Create mock listener
@@ -220,7 +220,7 @@ func TestServer_Shutdown_NoActiveConnections(t *testing.T) {
 
 // TestServer_Shutdown_NilComponents tests shutdown with nil components
 func TestServer_Shutdown_NilComponents(t *testing.T) {
-	srv := NewServer(":0", 30*time.Second)
+	srv := NewServer(":0", DefaultReadTimeout)
 	// Leave cancel and listener as nil
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), time.Second)
@@ -235,7 +235,7 @@ func TestServer_Shutdown_NilComponents(t *testing.T) {
 
 // TestServer_Start_DelegatesCorrectly tests that Start properly delegates to StartWithContext
 func TestServer_Start_DelegatesCorrectly(t *testing.T) {
-	srv := NewServer("invalid-address:999999", 30*time.Second) // Use invalid address to get quick error
+	srv := NewServer("invalid-address:999999", DefaultReadTimeout) // Use invalid address to get quick error
 
 	err := srv.Start()
 
@@ -251,7 +251,7 @@ func TestServer_Start_DelegatesCorrectly(t *testing.T) {
 
 // TestServer_StartWithContext_AcceptLoop tests the accept loop behavior
 func TestServer_StartWithContext_AcceptLoop(t *testing.T) {
-	srv := NewServer(":0", 30*time.Second)
+	srv := NewServer(":0", DefaultReadTimeout)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

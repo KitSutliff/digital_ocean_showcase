@@ -151,7 +151,7 @@ func TestMetrics_MultipleSnapshots(t *testing.T) {
 }
 
 func TestServer_MetricsIntegration(t *testing.T) {
-	srv := NewServer(":0", 30*time.Second)
+	srv := NewServer(":0", DefaultReadTimeout)
 
 	// Verify server has metrics
 	if srv.metrics == nil {

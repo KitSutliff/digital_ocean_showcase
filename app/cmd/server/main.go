@@ -59,7 +59,7 @@ func run() error {
 	quiet := flag.Bool("quiet", false, "Disable logging for performance")
 	adminAddr := flag.String("admin", "", "Admin HTTP server address (disabled if empty)")
 	shutdownTimeoutFlag := flag.Duration("shutdown-timeout", defaultShutdownTimeout, "Graceful shutdown timeout")
-	readTimeoutFlag := flag.Duration("read-timeout", 30*time.Second, "Connection read timeout")
+	readTimeoutFlag := flag.Duration("read-timeout", server.DefaultReadTimeout, "Connection read timeout")
 	flag.Parse()
 
 	// Setup structured logging
