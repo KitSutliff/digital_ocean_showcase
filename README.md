@@ -75,18 +75,23 @@ The package indexer includes an optional HTTP admin server for production observ
 ./package-indexer -admin :9090
 
 # Access endpoints
-curl http://localhost:9090/healthz    # Health check (readiness/liveness)
-curl http://localhost:9090/metrics   # Runtime metrics (JSON)
+curl http://localhost:9090/healthz    # Health check (readiness/liveness) 
+curl http://localhost:9090/metrics   # Runtime metrics (Prometheus format)
 curl http://localhost:9090/buildinfo # Build version and Go info (JSON)
 curl http://localhost:9090/debug/pprof/ # pprof debugging endpoints
 ```
 
 ### Admin Endpoints
 
-- **`/healthz`** - Health check with readiness and liveness status
-- **`/metrics`** - Server metrics (connections, commands, errors, packages, uptime)  
+- **`/healthz`** - Health check with actual readiness status and proper HTTP codes
+- **`/metrics`** - Prometheus-format metrics (connections, commands, errors, packages, uptime)  
 - **`/buildinfo`** - Build information (Go version, module path, settings)
 - **`/debug/pprof/`** - Standard Go pprof endpoints for performance analysis
+
+**Key Features:**
+- **Structured Logging**: JSON-formatted logs with contextual fields for production analysis
+- **Prometheus Integration**: Industry-standard metrics format for monitoring tools
+- **Proper Health Checks**: Readiness probes that reflect actual server state
 
 **Note:** Admin server is disabled by default and has zero impact on the main TCP protocol or test harness compatibility.
 
@@ -219,7 +224,7 @@ cd testing/scripts && ./chaos_test.sh
 - **Health Checks**: Docker health check via netcat TCP probe (`nc -z localhost 8080`)
 - **Testing**: Dual testing approach validates both development and production environments
 - **Containerization**: Multi-stage builds with pinned Ubuntu base (ubuntu:22.04)\n- **Graceful Shutdown**: Handles SIGTERM/SIGINT signals, closes connections cleanly
-- **Monitoring**: Basic logging with connection lifecycle events
+- **Monitoring**: Structured JSON logging with connection IDs, client addresses, and contextual fields
 - **Resource Usage**: Minimal memory footprint, efficient O(1) operations
 
 ## Troubleshooting
@@ -232,7 +237,7 @@ cd testing/scripts && ./chaos_test.sh
 
 ### Debug Mode
 
-Enable verbose logging by removing the `-quiet` flag when starting the server.
+Enable structured JSON logging by removing the `-quiet` flag when starting the server. Logs include contextual fields like connection IDs and client addresses for enhanced debugging.
 
 ## Project Structure
 

@@ -9,15 +9,18 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"package-indexer/internal/indexer"
 	"package-indexer/internal/wire"
 )
+
+var nextConnID uint64
 
 // Server manages TCP connections and coordinates with the indexer using a goroutine-per-connection model.
 // Architecture decision: This approach provides natural connection lifecycle management and scales
@@ -32,6 +35,7 @@ type Server struct {
 	cancel   context.CancelFunc
 	metrics  *Metrics
 	ready    chan bool // Signals when the listener is ready for connections
+	isReady  atomic.Bool
 }
 
 // Timeout configuration for connection read operations
@@ -69,6 +73,7 @@ func (s *Server) StartWithContext(ctx context.Context) error {
 	s.mu.Lock()
 	s.listener = l
 	s.mu.Unlock()
+	s.isReady.Store(true)
 	close(s.ready) // Signal that the listener is ready
 
 	// Close the listener when context is cancelled to unblock Accept
@@ -82,7 +87,7 @@ func (s *Server) StartWithContext(ctx context.Context) error {
 		}
 	}()
 
-	log.Printf("Package indexer server listening on %s", s.addr)
+	slog.Info("Package indexer server listening", "addr", s.addr)
 
 	for {
 		conn, err := l.Accept()
@@ -91,7 +96,7 @@ func (s *Server) StartWithContext(ctx context.Context) error {
 			case <-s.ctx.Done():
 				return nil // Graceful shutdown
 			default:
-				log.Printf("Failed to accept connection: %v", err)
+				slog.Warn("Failed to accept connection", "error", err)
 				continue
 			}
 		}
@@ -106,18 +111,22 @@ func (s *Server) handleConnection(conn net.Conn) {
 	defer s.wg.Done()
 	defer func() {
 		if err := conn.Close(); err != nil {
-			log.Printf("Error closing connection: %v", err)
+			slog.Warn("Error closing connection", "error", err)
 		}
 	}()
-	s.serveConn(s.ctx, conn)
+
+	connID := atomic.AddUint64(&nextConnID, 1)
+	s.serveConn(s.ctx, conn, connID)
 }
 
 // serveConn contains the core connection processing loop.
 // It enforces newline framing, resets a read deadline before each read,
 // and exits gracefully on context cancellation or client disconnect.
-func (s *Server) serveConn(ctx context.Context, conn net.Conn) {
+func (s *Server) serveConn(ctx context.Context, conn net.Conn, connID uint64) {
 	clientAddr := conn.RemoteAddr().String()
-	log.Printf("Client connected: %s", clientAddr)
+	logger := slog.With("connID", connID, "clientAddr", clientAddr)
+
+	logger.Info("Client connected")
 
 	s.metrics.IncrementConnections()
 
@@ -146,34 +155,38 @@ func (s *Server) serveConn(ctx context.Context, conn net.Conn) {
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			if err == io.EOF {
-				log.Printf("Client disconnected: %s", clientAddr)
+				logger.Info("Client disconnected")
+			} else if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				logger.Warn("Client timeout")
 			} else {
-				log.Printf("Error reading from client %s: %v", clientAddr, err)
+				logger.Warn("Error reading from client", "error", err)
 			}
 			return
 		}
 
 		// Process the command and get response
 		s.metrics.IncrementCommands()
-		response := s.processCommand(line)
+		response := s.processCommand(logger, line)
 
 		// Send response back to client
 		if _, err := conn.Write([]byte(response.String())); err != nil {
-			log.Printf("Error writing response to client %s: %v", clientAddr, err)
+			logger.Warn("Error writing response to client", "error", err)
 			return
 		}
 	}
 }
 
 // processCommand parses and executes a single command
-func (s *Server) processCommand(line string) wire.Response {
+func (s *Server) processCommand(logger *slog.Logger, line string) wire.Response {
 	// Parse the command
 	cmd, err := wire.ParseCommand(line)
 	if err != nil {
-		log.Printf("Parse error: %v (line: %q)", err, strings.TrimSpace(line))
+		logger.Warn("Parse error", "error", err, "line", strings.TrimSpace(line))
 		s.metrics.IncrementErrors()
 		return wire.ERROR
 	}
+
+	logger = logger.With("cmd", cmd.Type, "pkg", cmd.Package)
 
 	// Execute the command
 	switch cmd.Type {
@@ -200,7 +213,7 @@ func (s *Server) processCommand(line string) wire.Response {
 		return wire.FAIL
 
 	default:
-		log.Printf("Unknown command type: %v", cmd.Type)
+		logger.Warn("Unknown command type")
 		s.metrics.IncrementErrors()
 		return wire.ERROR
 	}
@@ -211,9 +224,37 @@ func (s *Server) GetMetrics() MetricsSnapshot {
 	return s.metrics.GetSnapshot()
 }
 
+// GetStats returns a snapshot of current indexer statistics.
+// Architecture decision: Decouples server metrics from indexer state, allowing
+// each component to be monitored independently in production environments.
+func (s *Server) GetStats() (stats struct{ Indexed int }) {
+	indexed, _, _ := s.indexer.GetStats()
+	stats.Indexed = indexed
+	return
+}
+
+// IsReady checks if the server's TCP listener is active and ready to accept connections.
+// Used by the /healthz readiness probe for production monitoring and service discovery.
+func (s *Server) IsReady() bool {
+	return s.isReady.Load()
+}
+
+// Ready returns a channel that is closed when the server is ready to accept connections.
+// Used for test synchronization.
+func (s *Server) Ready() <-chan bool {
+	return s.ready
+}
+
+// SetListener injects a listener into the server. Used for testing purposes.
+func (s *Server) SetListener(l net.Listener) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.listener = l
+}
+
 // Shutdown gracefully shuts down the server with configurable timeout
 func (s *Server) Shutdown(ctx context.Context) error {
-	log.Printf("Initiating graceful shutdown...")
+	slog.Info("Initiating graceful shutdown...")
 
 	s.mu.Lock()
 	cancel := s.cancel
@@ -237,10 +278,10 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 	select {
 	case <-done:
-		log.Printf("All connections closed gracefully")
+		slog.Info("All connections closed gracefully")
 		return nil
 	case <-ctx.Done():
-		log.Printf("Shutdown timeout exceeded")
+		slog.Warn("Shutdown timeout exceeded")
 		return ctx.Err()
 	}
 }

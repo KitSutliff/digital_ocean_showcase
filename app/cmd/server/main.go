@@ -9,7 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/http/pprof"
 	"os"
@@ -21,11 +21,33 @@ import (
 	"package-indexer/internal/server"
 )
 
+// Server configuration constants
+const (
+	shutdownTimeout = 30 * time.Second
+)
+
+// Prometheus metric definitions
+type prometheusMetric struct {
+	name       string
+	help       string
+	metricType string
+	value      interface{}
+}
+
+// writePrometheusMetric writes a single Prometheus metric in standard format
+func writePrometheusMetric(w io.Writer, metric prometheusMetric) {
+	fmt.Fprintf(w, "# HELP %s %s\n", metric.name, metric.help)
+	fmt.Fprintf(w, "# TYPE %s %s\n", metric.name, metric.metricType)
+	fmt.Fprintf(w, "%s %v\n\n", metric.name, metric.value)
+}
+
 func main() {
 	if err := run(); err != nil {
-		log.Fatalf("Server failed: %v", err)
+		// Use slog for structured error logging at exit
+		slog.Error("Server failed", "error", err)
+		os.Exit(1)
 	}
-	log.Printf("Server stopped successfully")
+	slog.Info("Server stopped successfully")
 }
 
 // run encapsulates the server startup and graceful shutdown logic.
@@ -38,13 +60,16 @@ func run() error {
 	adminAddr := flag.String("admin", "", "Admin HTTP server address (disabled if empty)")
 	flag.Parse()
 
-	// Disable logging for performance in high-throughput scenarios
+	// Setup structured logging
+	var handler slog.Handler
 	if *quiet {
-		log.SetOutput(io.Discard)
+		handler = slog.NewJSONHandler(io.Discard, nil)
 	} else {
-		// High-fidelity timestamps for production logs
-		log.SetFlags(log.LstdFlags | log.LUTC | log.Lmicroseconds)
+		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelInfo,
+		})
 	}
+	slog.SetDefault(slog.New(handler))
 
 	// Application context
 	ctx, cancel := context.WithCancel(context.Background())
@@ -58,7 +83,7 @@ func run() error {
 	srv := server.NewServer(*addr)
 	serverErr := make(chan error, 1)
 	go func() {
-		log.Printf("Starting package indexer server on %s", *addr)
+		slog.Info("Starting package indexer server", "addr", *addr)
 		serverErr <- srv.StartWithContext(ctx)
 	}()
 
@@ -71,14 +96,14 @@ func run() error {
 	// Wait for stop signal or server error
 	select {
 	case <-stop:
-		log.Println("Received shutdown signal")
+		slog.Info("Received shutdown signal")
 	case err := <-serverErr:
 		return fmt.Errorf("server error: %w", err)
 	}
 
 	// Initiate graceful shutdown with timeout
-	log.Println("Initiating graceful shutdown...")
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	slog.Info("Initiating graceful shutdown...")
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer shutdownCancel()
 
 	// Shutdown main server
@@ -107,25 +132,70 @@ func startAdminServer(ctx context.Context, addr string, srv *server.Server) *htt
 	// Liveness: Process is running (always true if we reach this handler)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
+
+		ready := srv.IsReady()
+		status := http.StatusOK
+		if !ready {
+			status = http.StatusServiceUnavailable
+		}
+		w.WriteHeader(status)
 
 		// In production, readiness would check if TCP server is accepting connections
 		// For this implementation, we assume readiness once the main server starts
 		response := map[string]interface{}{
 			"status":    "healthy",
-			"readiness": true, // TCP listener operational
-			"liveness":  true, // Process operational
+			"readiness": ready, // TCP listener operational
+			"liveness":  true,  // Process operational
 		}
 
 		json.NewEncoder(w).Encode(response)
 	})
 
-	// Metrics endpoint exposing operational statistics as structured JSON
-	// Enables monitoring dashboards, alerting, and capacity planning integration
+	// Metrics endpoint exposing operational statistics in Prometheus format
+	// Enables integration with industry-standard monitoring tools like Prometheus and Grafana
 	mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 		metrics := srv.GetMetrics()
-		json.NewEncoder(w).Encode(metrics)
+		stats := srv.GetStats()
+
+		// Define all metrics in a structured way to eliminate duplication
+		prometheusMetrics := []prometheusMetric{
+			{
+				name:       "package_indexer_connections_total",
+				help:       "Total number of connections handled.",
+				metricType: "counter",
+				value:      metrics.ConnectionsTotal,
+			},
+			{
+				name:       "package_indexer_commands_processed_total",
+				help:       "Total number of commands processed.",
+				metricType: "counter",
+				value:      metrics.CommandsProcessed,
+			},
+			{
+				name:       "package_indexer_errors_total",
+				help:       "Total number of processing errors.",
+				metricType: "counter",
+				value:      metrics.ErrorCount,
+			},
+			{
+				name:       "package_indexer_packages_indexed_current",
+				help:       "Current number of indexed packages.",
+				metricType: "gauge",
+				value:      stats.Indexed,
+			},
+			{
+				name:       "package_indexer_uptime_seconds_total",
+				help:       "Server uptime in seconds.",
+				metricType: "counter",
+				value:      int64(metrics.Uptime.Seconds()),
+			},
+		}
+
+		// Write all metrics using the helper function
+		for _, metric := range prometheusMetrics {
+			writePrometheusMetric(w, metric)
+		}
 	})
 
 	// Build info endpoint provides versioning details for release diagnostics
@@ -163,9 +233,9 @@ func startAdminServer(ctx context.Context, addr string, srv *server.Server) *htt
 	}
 
 	go func() {
-		log.Printf("Starting admin HTTP server on %s", addr)
+		slog.Info("Starting admin HTTP server", "addr", addr)
 		if err := adminServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Printf("Admin server error: %v", err)
+			slog.Error("Admin server error", "error", err)
 		}
 	}()
 

@@ -3,6 +3,8 @@ package server
 import (
 	"bufio"
 	"context"
+	"io"
+	"log/slog"
 	"net"
 	"strings"
 	"testing"
@@ -148,6 +150,7 @@ func TestNewServer(t *testing.T) {
 
 func TestServer_ProcessCommand(t *testing.T) {
 	srv := NewServer(":8080")
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
 
 	tests := []struct {
 		name     string
@@ -228,20 +231,20 @@ func TestServer_ProcessCommand(t *testing.T) {
 
 			// For tests that depend on pre-existing state, set it up
 			if strings.Contains(test.input, "QUERY|test|") && test.expected == wire.OK {
-				srv.processCommand("INDEX|test|\n")
+				srv.processCommand(logger, "INDEX|test|\n")
 			}
 			if strings.Contains(test.input, "INDEX|app|test") {
-				srv.processCommand("INDEX|test|\n")
+				srv.processCommand(logger, "INDEX|test|\n")
 			}
 			// For REMOVE tests on existing packages, set them up first
 			if strings.Contains(test.input, "REMOVE|test|") && test.expected == wire.OK {
-				srv.processCommand("INDEX|test|\n")
+				srv.processCommand(logger, "INDEX|test|\n")
 			}
 			if strings.Contains(test.input, "REMOVE|app|") && test.expected == wire.OK {
-				srv.processCommand("INDEX|app|\n")
+				srv.processCommand(logger, "INDEX|app|\n")
 			}
 
-			result := srv.processCommand(test.input)
+			result := srv.processCommand(logger, test.input)
 			if result != test.expected {
 				t.Errorf("processCommand(%q) = %v, expected %v", test.input, result, test.expected)
 			}
@@ -251,47 +254,48 @@ func TestServer_ProcessCommand(t *testing.T) {
 
 func TestServer_ProcessCommand_StatefulOperations(t *testing.T) {
 	srv := NewServer(":8080")
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
 
 	// Test sequence: INDEX -> QUERY -> INDEX with deps -> REMOVE with deps -> REMOVE
 
 	// 1. Index base package
-	result := srv.processCommand("INDEX|base|\n")
+	result := srv.processCommand(logger, "INDEX|base|\n")
 	if result != wire.OK {
 		t.Errorf("Expected OK for indexing base package, got %v", result)
 	}
 
 	// 2. Query base package
-	result = srv.processCommand("QUERY|base|\n")
+	result = srv.processCommand(logger, "QUERY|base|\n")
 	if result != wire.OK {
 		t.Errorf("Expected OK for querying indexed package, got %v", result)
 	}
 
 	// 3. Index app with base dependency
-	result = srv.processCommand("INDEX|app|base\n")
+	result = srv.processCommand(logger, "INDEX|app|base\n")
 	if result != wire.OK {
 		t.Errorf("Expected OK for indexing app with valid dependency, got %v", result)
 	}
 
 	// 4. Try to remove base (should fail - app depends on it)
-	result = srv.processCommand("REMOVE|base|\n")
+	result = srv.processCommand(logger, "REMOVE|base|\n")
 	if result != wire.FAIL {
 		t.Errorf("Expected FAIL for removing package with dependents, got %v", result)
 	}
 
 	// 5. Remove app first
-	result = srv.processCommand("REMOVE|app|\n")
+	result = srv.processCommand(logger, "REMOVE|app|\n")
 	if result != wire.OK {
 		t.Errorf("Expected OK for removing app, got %v", result)
 	}
 
 	// 6. Now remove base (should succeed)
-	result = srv.processCommand("REMOVE|base|\n")
+	result = srv.processCommand(logger, "REMOVE|base|\n")
 	if result != wire.OK {
 		t.Errorf("Expected OK for removing base after dependents removed, got %v", result)
 	}
 
 	// 7. Query removed package
-	result = srv.processCommand("QUERY|base|\n")
+	result = srv.processCommand(logger, "QUERY|base|\n")
 	if result != wire.FAIL {
 		t.Errorf("Expected FAIL for querying removed package, got %v", result)
 	}
@@ -299,26 +303,27 @@ func TestServer_ProcessCommand_StatefulOperations(t *testing.T) {
 
 func TestServer_ProcessCommand_Reindexing(t *testing.T) {
 	srv := NewServer(":8080")
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
 
 	// Set up dependencies
-	srv.processCommand("INDEX|dep1|\n")
-	srv.processCommand("INDEX|dep2|\n")
-	srv.processCommand("INDEX|app|dep1\n")
+	srv.processCommand(logger, "INDEX|dep1|\n")
+	srv.processCommand(logger, "INDEX|dep2|\n")
+	srv.processCommand(logger, "INDEX|app|dep1\n")
 
 	// Re-index with different dependencies
-	result := srv.processCommand("INDEX|app|dep2\n")
+	result := srv.processCommand(logger, "INDEX|app|dep2\n")
 	if result != wire.OK {
 		t.Errorf("Expected OK for re-indexing with different dependencies, got %v", result)
 	}
 
 	// Verify old dependency can be removed (dep1 should be removable)
-	result = srv.processCommand("REMOVE|dep1|\n")
+	result = srv.processCommand(logger, "REMOVE|dep1|\n")
 	if result != wire.OK {
 		t.Errorf("Expected OK for removing old dependency, got %v", result)
 	}
 
 	// Verify new dependency cannot be removed (dep2 should not be removable)
-	result = srv.processCommand("REMOVE|dep2|\n")
+	result = srv.processCommand(logger, "REMOVE|dep2|\n")
 	if result != wire.FAIL {
 		t.Errorf("Expected FAIL for removing current dependency, got %v", result)
 	}
@@ -371,38 +376,39 @@ func TestServer_Start_PortAlreadyInUse(t *testing.T) {
 
 func TestServer_ProcessCommand_EdgeCases(t *testing.T) {
 	srv := NewServer(":8080")
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
 
 	// Test with dependencies containing empty strings (trailing commas)
-	result := srv.processCommand("INDEX|test|dep1,,dep2,\n")
+	result := srv.processCommand(logger, "INDEX|test|dep1,,dep2,\n")
 	if result != wire.FAIL {
 		t.Errorf("Expected FAIL for missing dependencies, got %v", result)
 	}
 
 	// Index the dependencies first
-	srv.processCommand("INDEX|dep1|\n")
-	srv.processCommand("INDEX|dep2|\n")
+	srv.processCommand(logger, "INDEX|dep1|\n")
+	srv.processCommand(logger, "INDEX|dep2|\n")
 
 	// Now it should work
-	result = srv.processCommand("INDEX|test|dep1,,dep2,\n")
+	result = srv.processCommand(logger, "INDEX|test|dep1,,dep2,\n")
 	if result != wire.OK {
 		t.Errorf("Expected OK after dependencies are indexed, got %v", result)
 	}
 
 	// Test with complex dependency chains
-	srv.processCommand("INDEX|base|\n")
-	srv.processCommand("INDEX|mid|base\n")
-	srv.processCommand("INDEX|top|mid\n")
+	srv.processCommand(logger, "INDEX|base|\n")
+	srv.processCommand(logger, "INDEX|mid|base\n")
+	srv.processCommand(logger, "INDEX|top|mid\n")
 
 	// Try to remove base (should fail - mid depends on it)
-	result = srv.processCommand("REMOVE|base|\n")
+	result = srv.processCommand(logger, "REMOVE|base|\n")
 	if result != wire.FAIL {
 		t.Errorf("Expected FAIL for removing base of dependency chain, got %v", result)
 	}
 
 	// Remove in correct order
-	srv.processCommand("REMOVE|top|\n")
-	srv.processCommand("REMOVE|mid|\n")
-	result = srv.processCommand("REMOVE|base|\n")
+	srv.processCommand(logger, "REMOVE|top|\n")
+	srv.processCommand(logger, "REMOVE|mid|\n")
+	result = srv.processCommand(logger, "REMOVE|base|\n")
 	if result != wire.OK {
 		t.Errorf("Expected OK for removing base after chain is dismantled, got %v", result)
 	}

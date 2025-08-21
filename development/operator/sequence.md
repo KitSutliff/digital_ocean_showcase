@@ -9,7 +9,8 @@ The sequence diagram captures:
 - **Connection Handling Phase**: Accept loop, per-connection goroutines, and lifecycle management  
 - **Message Processing**: Protocol parsing, command validation, and business logic execution
 - **Core Operations**: INDEX (dependency validation), REMOVE (dependent checking), QUERY (lookup)
-- **Admin Server Operations**: Optional HTTP endpoints for health checks, metrics, build info, and pprof debugging
+- **Admin Server Operations**: Optional HTTP endpoints for health checks, Prometheus metrics, build info, and pprof debugging
+- **Structured Logging**: JSON-formatted logs with contextual fields (connID, clientAddr) using slog
 - **Graceful Shutdown Phase**: Context cancellation, connection cleanup, and coordinated shutdown of both servers
 
 ## Technical Precision
@@ -85,8 +86,8 @@ sequenceDiagram
     alt Admin flag provided (-admin :9090)
         Run->>Admin: startAdminServer(ctx, adminAddr, srv)
         Admin->>Admin: create HTTP ServeMux
-        Admin->>Admin: mount /healthz handler (health check JSON response)
-        Admin->>Admin: mount /metrics handler (srv.GetMetrics() as JSON)
+        Admin->>Admin: mount /healthz handler (health check with actual readiness status)
+        Admin->>Admin: mount /metrics handler (Prometheus format with srv.GetMetrics())
         Admin->>Admin: mount /buildinfo handler (build version and Go info as JSON)
         Admin->>Admin: mount /debug/pprof/ handler (pprof.Index)
         Admin->>Admin: mount /debug/pprof/cmdline handler (pprof.Cmdline)
@@ -95,7 +96,7 @@ sequenceDiagram
         Admin->>Admin: mount /debug/pprof/trace handler (pprof.Trace)
         Admin->>Admin: create &http.Server{Addr: addr, Handler: mux}
         Admin->>Admin: start adminServer.ListenAndServe() in goroutine
-        Admin->>Admin: log "Starting admin HTTP server on {addr}"
+        Admin->>Admin: slog.Info("Starting admin HTTP server", "addr", addr)
         Admin-->>Run: return *http.Server
     end
 
@@ -103,7 +104,7 @@ sequenceDiagram
     Note over Server, Conn: Connection Handling Phase
     loop Accept Loop
         Server->>Listener: l.Accept() - blocking wait for connections
-        Note over Server: On Accept error: if ctx.Done() return, else log and continue
+        Note over Server: On Accept error: if ctx.Done() return, else slog.Warn() and continue
         Listener-->>Server: return net.Conn (client connection)
         Server->>Server: wg.Add(1) - track connection for graceful shutdown
         Server->>Conn: go handleConnection(conn) - spawn connection handler
@@ -112,9 +113,12 @@ sequenceDiagram
         Note over Conn, Wire: Individual Client Session
         Conn->>Conn: defer wg.Done()
         Conn->>Conn: defer conn.Close()
-        Conn->>Server: serveConn(ctx, conn)
+        Conn->>Server: serveConn(ctx, conn, connID)
         
-        %% Connection Setup
+        %% Connection Setup with Structured Logging
+        Server->>Server: connID := atomic.AddUint64(&nextConnID, 1)
+        Server->>Server: logger := slog.With("connID", connID, "clientAddr", clientAddr)  
+        Server->>Server: logger.Info("Client connected")
         Server->>Metrics: IncrementConnections()
         Metrics->>Metrics: atomic.AddInt64(&ConnectionsTotal, 1)
         Server->>Conn: conn.SetReadDeadline(readTimeout)
@@ -253,12 +257,12 @@ sequenceDiagram
                 Server->>Conn: conn.Write(response) - send to client
                 alt Write error
                     Conn-->>Server: return error
-                    Server->>Server: log error and exit connection loop
+                    Server->>Server: logger.Warn("Error writing response to client", "error", err)
                 end
             
             else Connection Error (EOF, timeout, etc.)
                 Conn-->>Server: return error
-                Server->>Server: log error and exit connection loop
+                Server->>Server: logger.Info("Client disconnected") or logger.Warn("Error reading", "error", err)
             end
         end
         
@@ -289,7 +293,7 @@ sequenceDiagram
     
     Server-->>Run: return nil (successful shutdown)
     Run-->>Main: return nil
-    Main->>Main: log "Server stopped successfully"
+    Main->>Main: slog.Info("Server stopped successfully")
 ```
 
 ## Usage for Team Discussions
