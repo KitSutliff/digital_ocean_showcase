@@ -1156,3 +1156,55 @@ func TestSetListener(t *testing.T) {
 	defer cancel()
 	_ = s.Shutdown(shutdownCtx)
 }
+
+func TestIsReady_ShutdownBehavior(t *testing.T) {
+	s := NewServer("127.0.0.1:0", DefaultReadTimeout)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Initially not ready
+	if s.IsReady() {
+		t.Error("expected IsReady() to be false before startup")
+	}
+
+	// Start server
+	done := make(chan error, 1)
+	go func() { done <- s.StartWithContext(ctx) }()
+
+	// Wait for ready
+	select {
+	case <-s.Ready():
+		// Should be ready after startup
+		if !s.IsReady() {
+			t.Error("expected IsReady() to be true after startup")
+		}
+	case <-time.After(readyWaitTimeout):
+		t.Fatal("timeout waiting for Ready() to close")
+	}
+
+	// Initiate shutdown - IsReady should immediately become false
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), shutdownWaitTimeout)
+	defer shutdownCancel()
+
+	go func() {
+		_ = s.Shutdown(shutdownCtx)
+	}()
+
+	// Give shutdown a moment to start and set readiness to false
+	time.Sleep(10 * time.Millisecond)
+
+	// Should not be ready during shutdown
+	if s.IsReady() {
+		t.Error("expected IsReady() to be false during shutdown")
+	}
+
+	// Wait for server to complete shutdown
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Errorf("StartWithContext returned error: %v", err)
+		}
+	case <-time.After(readyWaitTimeout):
+		t.Fatal("timeout waiting for server to shutdown")
+	}
+}

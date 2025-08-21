@@ -265,6 +265,10 @@ func (s *Server) SetListener(l net.Listener) {
 func (s *Server) Shutdown(ctx context.Context) error {
 	slog.Info("Initiating graceful shutdown...")
 
+	// Mark server as not ready immediately when shutdown starts
+	// This ensures /healthz returns false during shutdown window
+	s.isReady.Store(false)
+
 	s.mu.Lock()
 	cancel := s.cancel
 	ln := s.listener
