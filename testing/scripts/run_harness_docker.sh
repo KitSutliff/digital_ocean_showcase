@@ -24,7 +24,7 @@ while [ $timeout -gt 0 ]; do
 done
 
 if [ $timeout -eq 0 ]; then
-    echo "❌ Container failed to become healthy"
+    echo "ERROR: Container failed to become healthy"
     docker stop $CONTAINER_ID
     exit 1
 fi
@@ -47,4 +47,4 @@ fi
 echo "Running test harness against Docker container: $HARNESS_BIN"
 $HARNESS_BIN "$@"
 
-echo "✅ Docker test harness completed successfully!"
+echo "SUCCESS: Docker test harness completed successfully!"

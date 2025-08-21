@@ -2,29 +2,29 @@
 
 set -e
 
-echo "🚀 Final Verification Script for Package Indexer"
+echo "VERIFICATION: Final Verification Script for Package Indexer"
 echo "================================================="
 
 # Clean previous builds
-echo "🧹 Cleaning previous builds..."
+echo "CLEAN: Cleaning previous builds..."
 make -C ../.. clean
 
 # Run all tests with race detection
-echo "🧪 Running unit tests with race detection..."
+echo "TESTING: Running unit tests with race detection..."
 pushd ../.. && go test -race ./internal/... && popd
 
-echo "🧪 Running integration tests..."
+echo "TESTING: Running integration tests..."
 pushd ../.. && go test -race ./testing/integration/... && popd
 
-echo "📊 Running tests with coverage..."
+echo "COVERAGE: Running tests with coverage..."
 pushd ../.. && go test -cover ./... && popd
 
 # Build the binary
-echo "🔨 Building server binary..."
+echo "BUILD: Building server binary..."
 make -C ../.. build
 
 # Test basic functionality
-echo "🔌 Testing basic connectivity..."
+echo "CONNECTIVITY: Testing basic connectivity..."
 ../../package-indexer -quiet &
 SERVER_PID=$!
 # Wait for readiness
@@ -33,37 +33,37 @@ while ! nc -z 127.0.0.1 8080 >/dev/null 2>&1; do
     sleep 1
     timeout=$((timeout - 1))
     if [ $timeout -le 0 ]; then
-        echo "❌ Server did not become ready in time"
+        echo "ERROR: Server did not become ready in time"
         kill $SERVER_PID 2>/dev/null || true
         exit 1
     fi
 done
 
 # Basic functional test
-echo "INDEX|test|" | nc localhost 8080 | grep -q "OK" || (echo "❌ Basic functionality test failed"; kill $SERVER_PID; exit 1)
-echo "QUERY|test|" | nc localhost 8080 | grep -q "OK" || (echo "❌ Query test failed"; kill $SERVER_PID; exit 1)
-echo "REMOVE|test|" | nc localhost 8080 | grep -q "OK" || (echo "❌ Remove test failed"; kill $SERVER_PID; exit 1)
+echo "INDEX|test|" | nc localhost 8080 | grep -q "OK" || (echo "ERROR: Basic functionality test failed"; kill $SERVER_PID; exit 1)
+echo "QUERY|test|" | nc localhost 8080 | grep -q "OK" || (echo "ERROR: Query test failed"; kill $SERVER_PID; exit 1)
+echo "REMOVE|test|" | nc localhost 8080 | grep -q "OK" || (echo "ERROR: Remove test failed"; kill $SERVER_PID; exit 1)
 
 # Stop test server
 kill $SERVER_PID
 sleep 1
 
-echo "✅ Basic functionality verified!"
+echo "SUCCESS: Basic functionality verified!"
 
 # Run official test harness
-echo "🎯 Running official test harness..."
+echo "HARNESS: Running official test harness..."
 ./run_harness.sh
 
 # Run stress tests
-echo "💪 Running stress tests..."
+echo "STRESS: Running stress tests..."
 ./stress_test.sh
 
-echo "✅ All verification tests passed!"
-echo "📦 Project is ready for submission!"
+echo "SUCCESS: All verification tests passed!"
+echo "READY: Project is ready for submission!"
 
 # Generate project statistics
 echo ""
-echo "📈 Project Statistics:"
+echo "STATS: Project Statistics:"
 echo "====================="
 pushd ../.. >/dev/null
 echo "Go files: $(find . -name '*.go' | wc -l)"

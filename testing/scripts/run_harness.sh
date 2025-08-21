@@ -34,4 +34,4 @@ fi
 echo "Running test harness: $HARNESS_BIN"
 $HARNESS_BIN "$@"
 
-echo "✅ Test harness completed successfully!"
+echo "SUCCESS: Test harness completed successfully!"

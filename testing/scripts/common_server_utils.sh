@@ -22,11 +22,11 @@ start_test_server() {
         sleep 1
         timeout=$((timeout - 1))
         if [ $timeout -le 0 ]; then
-            echo "❌ Server did not become ready in time"
+            echo "ERROR: Server did not become ready in time"
             exit 1
         fi
     done
-    echo "✅ Server is ready"
+    echo "SUCCESS: Server is ready"
 
     # Export PID for cleanup functions
     export TEST_SERVER_PID=$SERVER_PID
@@ -53,7 +53,7 @@ get_harness_binary() {
     HARNESS_BIN="${HARNESS_BIN:-$script_dir/../harness/do-package-tree_$(uname -s | tr '[:upper:]' '[:lower:]')}"
     
     if [[ ! -f "$HARNESS_BIN" ]]; then
-        echo "❌ Test harness binary not found: $HARNESS_BIN"
+        echo "ERROR: Test harness binary not found: $HARNESS_BIN"
         echo "   Set HARNESS_BIN environment variable to point to correct binary"
         exit 1
     fi

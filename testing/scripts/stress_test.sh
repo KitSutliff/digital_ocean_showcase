@@ -15,18 +15,18 @@ echo "Running stress tests..."
 
 # Test with increasing concurrency levels
 for concurrency in 1 10 25 50 100; do
-    echo "🧪 Testing with concurrency level: $concurrency"
+    echo "TESTING: Testing with concurrency level: $concurrency"
     
     # Test with multiple random seeds for robustness
     for seed in 42 12345 98765; do
         echo "   Seed: $seed"
         $HARNESS_BIN -concurrency=$concurrency -seed=$seed
         if [ $? -ne 0 ]; then
-            echo "❌ FAILED: concurrency=$concurrency, seed=$seed"
+            echo "FAILED: concurrency=$concurrency, seed=$seed"
             exit 1
         fi
     done
-    echo "   ✅ All seeds passed for concurrency $concurrency"
+    echo "   PASS: All seeds passed for concurrency $concurrency"
 done
 
-echo "🎉 All stress tests passed!"
+echo "SUCCESS: All stress tests passed!"
