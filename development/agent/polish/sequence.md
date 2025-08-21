@@ -84,8 +84,16 @@ sequenceDiagram
     %% Optional Admin Server Startup
     alt Admin flag provided (-admin :9090)
         Run->>Admin: startAdminServer(ctx, adminAddr, srv)
-        Admin->>Admin: create HTTP mux with /healthz, /metrics, pprof endpoints
-        Admin->>Admin: start HTTP server in goroutine
+        Admin->>Admin: create HTTP ServeMux
+        Admin->>Admin: mount /healthz handler (health check JSON response)
+        Admin->>Admin: mount /metrics handler (srv.GetMetrics() as JSON)
+        Admin->>Admin: mount /debug/pprof/ handler (pprof.Index)
+        Admin->>Admin: mount /debug/pprof/cmdline handler (pprof.Cmdline)
+        Admin->>Admin: mount /debug/pprof/profile handler (pprof.Profile)
+        Admin->>Admin: mount /debug/pprof/symbol handler (pprof.Symbol)
+        Admin->>Admin: mount /debug/pprof/trace handler (pprof.Trace)
+        Admin->>Admin: create &http.Server{Addr: addr, Handler: mux}
+        Admin->>Admin: start adminServer.ListenAndServe() in goroutine
         Admin->>Admin: log "Starting admin HTTP server on {addr}"
         Admin-->>Run: return *http.Server
     end
