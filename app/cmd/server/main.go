@@ -23,7 +23,11 @@ import (
 
 // Server configuration constants
 const (
-	defaultShutdownTimeout = 30 * time.Second
+	defaultShutdownTimeout        = 30 * time.Second
+	defaultAdminReadHeaderTimeout = 5 * time.Second
+	defaultAdminReadTimeout       = 10 * time.Second
+	defaultAdminWriteTimeout      = 10 * time.Second
+	defaultAdminIdleTimeout       = 60 * time.Second
 )
 
 // Prometheus metric definitions
@@ -187,10 +191,10 @@ func startAdminServer(ctx context.Context, addr string, srv *server.Server) *htt
 				value:      stats.Indexed,
 			},
 			{
-				name:       "package_indexer_uptime_seconds_total",
+				name:       "package_indexer_uptime_seconds",
 				help:       "Server uptime in seconds.",
-				metricType: "counter",
-				value:      int64(metrics.Uptime.Seconds()),
+				metricType: "gauge",
+				value:      metrics.Uptime.Seconds(),
 			},
 		}
 
@@ -230,8 +234,12 @@ func startAdminServer(ctx context.Context, addr string, srv *server.Server) *htt
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)     // Execution tracing
 
 	adminServer := &http.Server{
-		Addr:    addr,
-		Handler: mux,
+		Addr:              addr,
+		Handler:           mux,
+		ReadHeaderTimeout: defaultAdminReadHeaderTimeout,
+		ReadTimeout:       defaultAdminReadTimeout,
+		WriteTimeout:      defaultAdminWriteTimeout,
+		IdleTimeout:       defaultAdminIdleTimeout,
 	}
 
 	go func() {

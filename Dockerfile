@@ -11,8 +11,8 @@ COPY . .
 # Build binary
 RUN go build -o package-indexer ./app/cmd/server
 
-# Production image - using Ubuntu as required by challenge
-FROM ubuntu:22.04
+# Production image - using latest Ubuntu as required by challenge
+FROM ubuntu:24.04
 
 # Install netcat for healthcheck and set up non-root user
 RUN apt-get update && apt-get install -y netcat-openbsd && \

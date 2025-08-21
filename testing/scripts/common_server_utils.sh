@@ -13,8 +13,20 @@ start_test_server() {
     ../../package-indexer -quiet &
     SERVER_PID=$!
 
-    # Wait for server to start
-    sleep 2
+    # Wait for server to become ready using readiness probe
+    local timeout=30
+    local host="127.0.0.1"
+    local port=8080
+    echo "Waiting for server readiness on ${host}:${port}..."
+    while ! nc -z ${host} ${port} >/dev/null 2>&1; do
+        sleep 1
+        timeout=$((timeout - 1))
+        if [ $timeout -le 0 ]; then
+            echo "❌ Server did not become ready in time"
+            exit 1
+        fi
+    done
+    echo "✅ Server is ready"
 
     # Export PID for cleanup functions
     export TEST_SERVER_PID=$SERVER_PID
