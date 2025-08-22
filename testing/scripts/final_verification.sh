@@ -46,7 +46,7 @@ echo "REMOVE|test|" | nc localhost 8080 | grep -q "OK" || (echo "ERROR: Remove t
 
 # Stop test server
 kill $SERVER_PID
-sleep 1
+sleep 3
 
 echo "SUCCESS: Basic functionality verified!"
 

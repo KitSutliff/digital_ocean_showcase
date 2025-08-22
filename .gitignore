@@ -22,6 +22,3 @@ version
 # OS files
 .DS_Store
 Thumbs.db
-
-# Development artifacts  
-# (none currently)

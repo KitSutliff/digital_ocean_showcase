@@ -40,6 +40,8 @@ setup_server_cleanup() {
             echo "Stopping server (PID: $TEST_SERVER_PID)"
             kill $TEST_SERVER_PID 2>/dev/null || true
             wait $TEST_SERVER_PID 2>/dev/null || true
+            # Allow OS time to fully release the port binding
+            sleep 2
         fi
     }
     trap cleanup EXIT
