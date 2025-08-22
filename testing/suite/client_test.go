@@ -7,6 +7,11 @@ import (
 	"testing"
 )
 
+// Test constants to avoid magic numbers and ensure determinism
+const (
+	testInvalidHost = "nonexistent.invalid" // RFC 2606 reserved TLD ensures DNS failure
+)
+
 func respondWith(t *testing.T, server net.Listener, responseCode string) {
 	conn, err := server.Accept()
 	if err != nil {
@@ -19,25 +24,25 @@ func respondWith(t *testing.T, server net.Listener, responseCode string) {
 }
 
 func TestMakeTCPPackageIndexClient(t *testing.T) {
-	portWithNobodyListeningTo := 8089
-	client, err := MakeTCPPackageIndexClient("portisntopen", "localhost", portWithNobodyListeningTo)
+	// Deterministically fail by using a guaranteed-invalid host
+	client, err := MakeTCPPackageIndexClient("portisntopen", testInvalidHost, 12345)
 
 	if err == nil {
-		t.Errorf("Expected connection to [%d] to raise error as there's no server, got %v", portWithNobodyListeningTo, client)
+		t.Errorf("Expected connection to invalid host to raise error, got %v", client)
 	}
 }
 
 func TestSend(t *testing.T) {
-	goodPort := 8088
-	goodServer, err := net.Listen("tcp", fmt.Sprintf(":%d", goodPort))
-	defer goodServer.Close()
-
+	// Good server on an ephemeral port
+	goodServer, err := net.Listen("tcp", ":0")
 	if err != nil {
 		t.Fatalf("Error opening test server: %v", err)
 	}
+	defer goodServer.Close()
 
 	go respondWith(t, goodServer, "OK")
 
+	goodPort := goodServer.Addr().(*net.TCPAddr).Port
 	client, err := MakeTCPPackageIndexClient("goodPort", "localhost", goodPort)
 	if err != nil {
 		t.Fatalf("Error connecting to server: %v", err)
@@ -49,20 +54,20 @@ func TestSend(t *testing.T) {
 		t.Errorf("Error sending message to server: %v", err)
 	}
 
-	if responseCode == FAIL {
-		t.Errorf("Expected responseCode to be 1, got %v", responseCode)
+	if responseCode != OK {
+		t.Errorf("Expected responseCode to be OK, got %v", responseCode)
 	}
 
-	badPort := 8090
-	badServer, err := net.Listen("tcp", fmt.Sprintf(":%d", badPort))
-	defer badServer.Close()
-
+	// Bad server on an ephemeral port that returns an unknown response
+	badServer, err := net.Listen("tcp", ":0")
 	if err != nil {
 		t.Fatalf("Error opening test server: %v", err)
 	}
+	defer badServer.Close()
 
 	go respondWith(t, badServer, "banana")
 
+	badPort := badServer.Addr().(*net.TCPAddr).Port
 	client, err = MakeTCPPackageIndexClient("badPort", "localhost", badPort)
 	if err != nil {
 		t.Fatalf("Error connecting to server: %v", err)

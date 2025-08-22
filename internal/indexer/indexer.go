@@ -61,8 +61,6 @@ type Indexer struct {
 }
 
 // RemoveResult represents the outcome of a remove operation using type-safe enums.
-// This replaces the previous error-prone boolean tuple approach, improving code clarity
-// and reducing operational mistakes in production environments.
 type RemoveResult int
 
 // RemoveResult enumeration for type-safe remove operation outcomes

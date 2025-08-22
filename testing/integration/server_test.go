@@ -2,6 +2,7 @@ package integration
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"net"
 	"testing"
@@ -9,6 +10,12 @@ import (
 
 	"package-indexer/internal/server"
 	"package-indexer/internal/wire"
+)
+
+// Test timeouts to avoid magic numbers
+const (
+	testServerStartupTimeout  = 2 * time.Second
+	testServerShutdownTimeout = 2 * time.Second
 )
 
 // testClient represents a test client connection
@@ -51,23 +58,49 @@ func (c *testClient) close() error {
 	return c.conn.Close()
 }
 
-// startTestServer starts a server in a goroutine for testing
-func startTestServer(addr string) {
-	srv := server.NewServer(addr, server.DefaultReadTimeout)
-	go func() {
-		if err := srv.Start(); err != nil {
-			panic(fmt.Sprintf("Test server failed: %v", err))
-		}
-	}()
+// startTestServer starts a server with graceful lifecycle and returns address and shutdown
+func startTestServer(t *testing.T) (string, func()) {
+	t.Helper()
 
-	// Give server time to start
-	time.Sleep(100 * time.Millisecond)
+	// Reserve an ephemeral port deterministically
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("Failed to reserve port: %v", err)
+	}
+	addr := l.Addr().String()
+	_ = l.Close()
+
+	srv := server.NewServer(addr, server.DefaultReadTimeout)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- srv.StartWithContext(ctx) }()
+
+	// Wait for readiness with timeout
+	select {
+	case <-srv.Ready():
+	case <-time.After(testServerStartupTimeout):
+		cancel()
+		t.Fatalf("timeout waiting for server readiness")
+	}
+
+	shutdown := func() {
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), testServerShutdownTimeout)
+		defer shutdownCancel()
+		_ = srv.Shutdown(shutdownCtx)
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(testServerShutdownTimeout):
+		}
+	}
+
+	return addr, shutdown
 }
 
 func TestServer_BasicOperations(t *testing.T) {
-	// Start test server on different port to avoid conflicts
-	testAddr := ":9080"
-	startTestServer(testAddr)
+	// Start test server on an ephemeral port to avoid conflicts
+	testAddr, shutdown := startTestServer(t)
+	defer shutdown()
 
 	// Connect test client
 	client, err := newTestClient(testAddr)
@@ -132,9 +165,9 @@ func TestServer_BasicOperations(t *testing.T) {
 }
 
 func TestServer_ProtocolErrors(t *testing.T) {
-	// Start test server
-	testAddr := ":9081"
-	startTestServer(testAddr)
+	// Start test server on an ephemeral port
+	testAddr, shutdown := startTestServer(t)
+	defer shutdown()
 
 	// Connect test client
 	client, err := newTestClient(testAddr)
@@ -164,9 +197,9 @@ func TestServer_ProtocolErrors(t *testing.T) {
 }
 
 func TestServer_ConcurrentClients(t *testing.T) {
-	// Start test server
-	testAddr := ":9082"
-	startTestServer(testAddr)
+	// Start test server on an ephemeral port
+	testAddr, shutdown := startTestServer(t)
+	defer shutdown()
 
 	numClients := 10
 	commandsPerClient := 20
