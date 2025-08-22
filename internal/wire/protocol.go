@@ -1,7 +1,6 @@
 // Package wire implements the line-oriented TCP protocol for package dependency operations.
-// Protocol specification: "COMMAND|package|dependencies\n" with strict validation to ensure
-// compatibility with external test harnesses. Emphasizes specification compliance over
-// defensive programming to prevent false negatives in production validation systems.
+// Protocol format: "COMMAND|package|dependencies\n" with strict validation for
+// compatibility with external test harnesses and production validation systems.
 package wire
 
 import (
@@ -67,8 +66,7 @@ const (
 )
 
 // String returns the protocol response string with required trailing newline.
-// Protocol compliance: Ensures all responses match specification format exactly
-// for compatibility with external systems and automated testing infrastructure.
+// Ensures exact specification compliance for external systems and automated testing.
 func (r Response) String() string {
 	switch r {
 	case OK:
@@ -83,9 +81,8 @@ func (r Response) String() string {
 }
 
 // ParseCommand parses a line into a Command using exact protocol specification.
-// Format: "COMMAND|package|dependencies\n"
-// Validation strategy: Strict specification compliance prevents false negatives with
-// external test harnesses while ensuring robust protocol handling in production.
+// Format: "COMMAND|package|dependencies\n" with strict validation to prevent
+// false negatives with external test harnesses.
 func ParseCommand(line string) (*Command, error) {
 	// Must end with newline per protocol specification
 	if !strings.HasSuffix(line, "\n") {

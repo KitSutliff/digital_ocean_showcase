@@ -1,7 +1,6 @@
 // Package indexer implements a thread-safe in-memory dependency graph for package management.
-// This is the core business logic component, optimized for O(1) query operations and O(D)
-// modification operations where D is the dependency count. The dual-map architecture enables
-// efficient validation of dependency constraints in both directions.
+// Optimized for O(1) queries and O(D) modifications with dual-map architecture for
+// efficient bidirectional dependency validation.
 package indexer
 
 import (
@@ -49,9 +48,8 @@ func (s StringSet) Copy() StringSet {
 }
 
 // Indexer manages the package dependency graph with thread-safe operations.
-// Architecture decision: Single RWMutex provides simple correctness guarantees while allowing
-// concurrent reads (QUERY operations). The dual-map design enables O(1) dependency validation
-// in both directions, critical for production performance under 100+ concurrent clients.
+// Uses RWMutex for concurrent reads and dual-map design for O(1) dependency validation,
+// supporting 100+ concurrent clients in production.
 type Indexer struct {
 	mu sync.RWMutex // RWMutex enables concurrent reads while ensuring exclusive writes for scalability
 

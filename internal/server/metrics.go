@@ -1,7 +1,6 @@
 // Package server metrics provide real-time operational visibility for production monitoring.
-// Thread-safe atomic operations ensure accurate counters under high concurrency without
-// performance impact. Metrics enable capacity planning, alerting, and operational insights
-// essential for observability platform reliability.
+// Thread-safe atomic operations ensure accurate counters under high concurrency
+// for capacity planning, alerting, and operational insights.
 package server
 
 import (
@@ -9,9 +8,8 @@ import (
 	"time"
 )
 
-// Metrics contains runtime statistics for the server using atomic operations for thread safety.
-// Lock-free design ensures minimal performance impact while providing accurate operational
-// data essential for production monitoring and capacity planning in high-throughput environments.
+// Metrics contains runtime statistics using atomic operations for thread safety.
+// Lock-free design ensures minimal performance impact for production monitoring.
 type Metrics struct {
 	ConnectionsTotal  int64
 	CommandsProcessed int64

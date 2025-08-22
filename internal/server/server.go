@@ -1,7 +1,6 @@
 // Package server implements a high-performance TCP server with graceful shutdown capabilities.
-// The architecture uses goroutine-per-connection for natural resource management and scales
-// efficiently to 100+ concurrent clients. Includes operational metrics, connection timeouts,
-// and comprehensive error handling for production observability workloads.
+// Uses goroutine-per-connection architecture, scaling to 100+ concurrent clients with
+// operational metrics, connection timeouts, and comprehensive error handling.
 package server
 
 import (
@@ -22,9 +21,8 @@ import (
 
 var nextConnID uint64
 
-// Server manages TCP connections and coordinates with the indexer using a goroutine-per-connection model.
-// Architecture decision: This approach provides natural connection lifecycle management and scales
-// well to the required 100+ concurrent clients while maintaining operational simplicity.
+// Server manages TCP connections using a goroutine-per-connection model.
+// Provides natural connection lifecycle management, scaling to 100+ concurrent clients.
 type Server struct {
 	indexer     *indexer.Indexer
 	addr        string
@@ -121,9 +119,8 @@ func (s *Server) handleConnection(conn net.Conn) {
 	s.serveConn(s.ctx, conn, connID)
 }
 
-// serveConn contains the core connection processing loop.
-// It enforces newline framing, resets a read deadline before each read,
-// and exits gracefully on context cancellation or client disconnect.
+// serveConn contains the core connection processing loop with newline framing,
+// read deadline enforcement, and graceful shutdown coordination.
 func (s *Server) serveConn(ctx context.Context, conn net.Conn, connID uint64) {
 	clientAddr := conn.RemoteAddr().String()
 	logger := slog.With("connID", connID, "clientAddr", clientAddr)
@@ -233,9 +230,8 @@ func (s *Server) GetMetrics() MetricsSnapshot {
 	return s.metrics.GetSnapshot()
 }
 
-// GetStats returns a snapshot of current indexer statistics.
-// Architecture decision: Decouples server metrics from indexer state, allowing
-// each component to be monitored independently in production environments.
+// GetStats returns current indexer statistics, decoupled from server metrics
+// for independent monitoring in production environments.
 func (s *Server) GetStats() (stats struct{ Indexed int }) {
 	indexed, _, _ := s.indexer.GetStats()
 	stats.Indexed = indexed
