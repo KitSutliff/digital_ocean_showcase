@@ -135,6 +135,8 @@ func NewServerWithListener(l net.Listener) *ServerWithListener {
 	}
 }
 
+// TestHandleConnection_ProcessAndShutdown validates connection handling with proper
+// command processing and graceful shutdown coordination.
 func TestHandleConnection_ProcessAndShutdown(t *testing.T) {
 	s := NewServer(":0", DefaultReadTimeout)
 	s.ctx, s.cancel = context.WithCancel(context.Background())
@@ -177,6 +179,8 @@ func TestHandleConnection_ProcessAndShutdown(t *testing.T) {
 	})
 }
 
+// TestStartWithContext_GracefulShutdown validates proper server lifecycle management
+// with context-based shutdown coordination.
 func TestStartWithContext_GracefulShutdown(t *testing.T) {
 	s := NewServer("127.0.0.1:0", DefaultReadTimeout)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -226,6 +230,8 @@ func TestStartWithContext_GracefulShutdown(t *testing.T) {
 	}
 }
 
+// TestShutdown_TimeoutWhenConnectionsHung validates timeout handling when connections
+// fail to close within the configured shutdown timeout period.
 func TestShutdown_TimeoutWhenConnectionsHung(t *testing.T) {
 	s := NewServer(":0", DefaultReadTimeout)
 	s.ctx, s.cancel = context.WithCancel(context.Background())
@@ -241,6 +247,8 @@ func TestShutdown_TimeoutWhenConnectionsHung(t *testing.T) {
 	}
 }
 
+// TestNewServer validates server initialization with proper component setup
+// and default configuration values.
 func TestNewServer(t *testing.T) {
 	addr := ":8080"
 	readTimeout := 30 * time.Second
@@ -259,6 +267,8 @@ func TestNewServer(t *testing.T) {
 	}
 }
 
+// TestServer_ProcessCommand validates command parsing and execution through
+// the complete protocol handling pipeline.
 func TestServer_ProcessCommand(t *testing.T) {
 	srv := NewServer(":8080", DefaultReadTimeout)
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
@@ -363,6 +373,8 @@ func TestServer_ProcessCommand(t *testing.T) {
 	}
 }
 
+// TestServer_ProcessCommand_StatefulOperations validates dependency constraint enforcement
+// and stateful behavior across multiple related commands.
 func TestServer_ProcessCommand_StatefulOperations(t *testing.T) {
 	srv := NewServer(":8080", DefaultReadTimeout)
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
@@ -412,6 +424,8 @@ func TestServer_ProcessCommand_StatefulOperations(t *testing.T) {
 	}
 }
 
+// TestServer_ProcessCommand_Reindexing validates updating existing packages
+// with new dependency configurations.
 func TestServer_ProcessCommand_Reindexing(t *testing.T) {
 	srv := NewServer(":8080", DefaultReadTimeout)
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
@@ -440,6 +454,8 @@ func TestServer_ProcessCommand_Reindexing(t *testing.T) {
 	}
 }
 
+// TestServer_Start_InvalidAddress validates error handling for invalid
+// network addresses during server startup.
 func TestServer_Start_InvalidAddress(t *testing.T) {
 	// Test with invalid address that should fail to bind
 	srv := NewServer("invalid-address:999999", DefaultReadTimeout)
@@ -480,6 +496,8 @@ func TestServer_Start_PortAlreadyInUse(t *testing.T) {
 	}
 }
 
+// TestServer_ProcessCommand_EdgeCases validates handling of malformed protocol
+// messages and boundary conditions.
 func TestServer_ProcessCommand_EdgeCases(t *testing.T) {
 	srv := NewServer(":8080", DefaultReadTimeout)
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
@@ -1090,6 +1108,8 @@ func TestServer_HandleConnection_StreamingCommands(t *testing.T) {
 
 // Tests from server_ready_stats_test.go
 
+// TestReadyAndIsReady validates server readiness signaling for health checks
+// and load balancer integration.
 func TestReadyAndIsReady(t *testing.T) {
 	s := NewServer("127.0.0.1:0", DefaultReadTimeout)
 	ctx, cancel := context.WithCancel(context.Background())

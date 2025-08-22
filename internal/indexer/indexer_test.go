@@ -32,6 +32,8 @@ func assertRemove(t *testing.T, idx *Indexer, pkg string, expectedResult RemoveR
 	}
 }
 
+// TestIndexer_BasicOperations validates core indexing functionality including
+// package addition, dependency validation, and query operations.
 func TestIndexer_BasicOperations(t *testing.T) {
 	idx := NewIndexer()
 
@@ -63,6 +65,8 @@ func TestIndexer_BasicOperations(t *testing.T) {
 	assertRemove(t, idx, "base", RemoveResultOK)
 }
 
+// TestIndexer_RemoveOperations validates package removal logic including
+// dependent blocking and proper cleanup of forward/reverse dependencies.
 func TestIndexer_RemoveOperations(t *testing.T) {
 	idx := NewIndexer()
 
@@ -83,6 +87,8 @@ func TestIndexer_RemoveOperations(t *testing.T) {
 	assertRemove(t, idx, "base", RemoveResultOK)
 }
 
+// TestIndexer_ReindexOperations validates updating existing packages with new
+// dependency lists and proper cleanup of obsolete relationships.
 func TestIndexer_ReindexOperations(t *testing.T) {
 	idx := NewIndexer()
 
@@ -101,6 +107,8 @@ func TestIndexer_ReindexOperations(t *testing.T) {
 	assertRemove(t, idx, "base2", RemoveResultBlocked)
 }
 
+// TestIndexer_ConcurrentOperations validates thread safety of the indexer under
+// concurrent read/write operations with race condition detection.
 func TestIndexer_ConcurrentOperations(t *testing.T) {
 	idx := NewIndexer()
 
@@ -154,6 +162,8 @@ func TestIndexer_ConcurrentOperations(t *testing.T) {
 	}
 }
 
+// TestStringSet_Operations validates the StringSet data structure operations
+// including add, remove, contains, and copy functionality.
 func TestStringSet_Operations(t *testing.T) {
 	s := NewStringSet()
 

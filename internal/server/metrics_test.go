@@ -23,6 +23,8 @@ func assertMetrics(t *testing.T, actual, expected MetricsSnapshot) {
 	}
 }
 
+// TestNewMetrics validates initialization of metrics with correct default values
+// and proper start time recording for uptime calculations.
 func TestNewMetrics(t *testing.T) {
 	m := NewMetrics()
 
@@ -40,6 +42,8 @@ func TestNewMetrics(t *testing.T) {
 	}
 }
 
+// TestMetrics_IncrementOperations validates atomic increment operations for all
+// metric counters using table-driven testing for consistency.
 func TestMetrics_IncrementOperations(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -64,6 +68,8 @@ func TestMetrics_IncrementOperations(t *testing.T) {
 	}
 }
 
+// TestMetrics_ConcurrentIncrements validates thread safety of atomic operations
+// under high concurrency with race condition detection.
 func TestMetrics_ConcurrentIncrements(t *testing.T) {
 	m := NewMetrics()
 	const numGoroutines = 100
@@ -102,6 +108,8 @@ func TestMetrics_ConcurrentIncrements(t *testing.T) {
 	})
 }
 
+// TestMetrics_UptimeCalculation validates accuracy of uptime duration calculation
+// based on start time recording and snapshot generation.
 func TestMetrics_UptimeCalculation(t *testing.T) {
 	m := NewMetrics()
 
@@ -123,6 +131,8 @@ func TestMetrics_UptimeCalculation(t *testing.T) {
 	}
 }
 
+// TestMetrics_MultipleSnapshots validates consistency of multiple snapshot operations
+// and proper isolation between snapshot instances.
 func TestMetrics_MultipleSnapshots(t *testing.T) {
 	m := NewMetrics()
 
@@ -150,6 +160,8 @@ func TestMetrics_MultipleSnapshots(t *testing.T) {
 	}
 }
 
+// TestServer_MetricsIntegration validates end-to-end metrics collection through
+// the Server's GetMetrics interface with proper counter increments.
 func TestServer_MetricsIntegration(t *testing.T) {
 	srv := NewServer(":0", DefaultReadTimeout)
 

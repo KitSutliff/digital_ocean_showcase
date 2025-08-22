@@ -4,6 +4,8 @@ import (
 	"testing"
 )
 
+// TestParseCommand_ValidCases validates parsing of properly formatted protocol messages
+// including all command types with various dependency configurations.
 func TestParseCommand_ValidCases(t *testing.T) {
 	tests := []struct {
 		input    string
@@ -81,6 +83,8 @@ func TestParseCommand_ValidCases(t *testing.T) {
 	}
 }
 
+// TestParseCommand_ErrorCases validates proper error handling for malformed protocol messages
+// including invalid commands, missing fields, and format violations.
 func TestParseCommand_ErrorCases(t *testing.T) {
 	errorCases := []string{
 		"INVALID|package|\n",         // Invalid command
@@ -100,6 +104,8 @@ func TestParseCommand_ErrorCases(t *testing.T) {
 	}
 }
 
+// TestResponse_String validates that response codes generate correct protocol-compliant
+// strings with proper newline termination.
 func TestResponse_String(t *testing.T) {
 	tests := []struct {
 		response Response
@@ -119,6 +125,8 @@ func TestResponse_String(t *testing.T) {
 	}
 }
 
+// TestCommandType_String validates string representation of command types
+// including handling of unknown command values.
 func TestCommandType_String(t *testing.T) {
 	tests := []struct {
 		cmdType  CommandType
