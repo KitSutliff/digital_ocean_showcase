@@ -1,23 +1,17 @@
 # Binaries
 package-indexer
-/server
 *.exe
 
-# Go build artifacts
+# Go build artifacts  
 *.so
 *.dylib
 *.test
-*.out
 
 # Coverage reports
-coverage.html
-coverage.txt
+coverage.out
 
 # Version files
 version
-
-# Dependencies
-vendor/
 
 # IDE files
 .vscode/

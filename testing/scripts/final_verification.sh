@@ -69,4 +69,4 @@ echo "====================="
   echo "Go files: $(find . -name '*.go' | wc -l)" && \
   echo "Total lines of code: $(find . -name '*.go' -exec wc -l {} + | awk '{s+=$1} END {print s}')" && \
   echo "Test files: $(find . -name '*_test.go' | wc -l)" && \
-  echo "Test coverage: $(go test -cover ./... 2>/dev/null | grep -E 'coverage: [0-9.]+%' | tail -1 | awk '{print $2}')")
+  echo "Test coverage: $(go test -cover ./... 2>/dev/null | sed -nE 's/.*coverage: ([0-9.]+)%.*/\1/p' | tail -1)%")
