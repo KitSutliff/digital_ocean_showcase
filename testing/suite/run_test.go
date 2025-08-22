@@ -5,6 +5,8 @@ import (
 	"testing"
 )
 
+// stubClient provides a test double for PackageIndexerClient interface
+// enabling controlled testing of client interaction patterns.
 type stubClient struct {
 	WhatToReturn  ResponseCode
 	NumberOfCalls int
@@ -60,14 +62,20 @@ func testBruteforceAction(
 	}
 }
 
+// TestBruteforceIndexesPackages validates the iterative package indexing algorithm
+// that handles dependency ordering through repeated attempts.
 func TestBruteforceIndexesPackages(t *testing.T) {
 	testBruteforceAction(t, bruteforceIndexesPackages, 20, "bruteforceIndexesPackages")
 }
 
+// TestBruteforceRemovesAllPackages validates the iterative package removal algorithm
+// that handles dependent relationships through repeated attempts.
 func TestBruteforceRemovesAllPackages(t *testing.T) {
 	testBruteforceAction(t, bruteforceRemovesAllPackages, 200, "bruteforceRemovesAllPackages")
 }
 
+// TestVerifyAllPackages validates the package verification logic that confirms
+// expected server state after indexing or removal operations.
 func TestVerifyAllPackages(t *testing.T) {
 	allPackages := &AllPackages{}
 	expectedMessages := 200

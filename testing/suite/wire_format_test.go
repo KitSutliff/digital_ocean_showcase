@@ -2,6 +2,8 @@ package main
 
 import "testing"
 
+// TestMakeRemoveMessage validates generation of REMOVE protocol messages
+// according to the wire format specification.
 func TestMakeRemoveMessage(t *testing.T) {
 	allPackages := AllPackages{}
 
@@ -15,6 +17,9 @@ func TestMakeRemoveMessage(t *testing.T) {
 	}
 
 }
+
+// TestMakeIndexMessage validates generation of INDEX protocol messages
+// with proper dependency serialization for multi-dependency packages.
 func TestMakeIndexMessage(t *testing.T) {
 	allPackages := AllPackages{}
 
@@ -32,6 +37,9 @@ func TestMakeIndexMessage(t *testing.T) {
 	}
 
 }
+
+// TestMakeQueryMessage validates generation of QUERY protocol messages
+// according to the wire format specification.
 func TestMakeQueryMessage(t *testing.T) {
 	allPackages := AllPackages{}
 
@@ -45,6 +53,8 @@ func TestMakeQueryMessage(t *testing.T) {
 	}
 }
 
+// TestMakeBrokenMessage verifies generation of malformed protocol messages
+// for chaos testing and server error handling validation.
 func TestMakeBrokenMessage(t *testing.T) {
 	oneLine := MakeBrokenMessage()
 	otherLine := MakeBrokenMessage()

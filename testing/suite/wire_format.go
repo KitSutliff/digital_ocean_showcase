@@ -24,7 +24,7 @@ func MakeIndexMessage(pkg *Package) string {
 	return fmt.Sprintf("INDEX%s%s%s%s", ProtocolSeparator, pkg.Name, ProtocolSeparator, namesAsString)
 }
 
-// MakeRemoveMessage generates a message to remove a pakcage from the server's index
+// MakeRemoveMessage generates a message to remove a package from the server's index
 func MakeRemoveMessage(pkg *Package) string {
 	return fmt.Sprintf("REMOVE%s%s%s", ProtocolSeparator, pkg.Name, ProtocolSeparator)
 }
@@ -34,12 +34,15 @@ func MakeQueryMessage(pkg *Package) string {
 	return fmt.Sprintf("QUERY%s%s%s", ProtocolSeparator, pkg.Name, ProtocolSeparator)
 }
 
-var possibleInvalidCommands = []string{"BLINDEX", "REMOVES", "QUER", "LIZARD", "I"}
-var possibleInvalidChars = []string{"=", "☃", " "}
-var messageCounter int64
+// Chaos testing data for malformed message generation
+var (
+	possibleInvalidCommands = []string{"BLINDEX", "REMOVES", "QUER", "LIZARD", "I"}
+	possibleInvalidChars    = []string{"=", "☃", " "}
+	messageCounter          int64
+)
 
-// MakeBrokenMessage returns a message that's somehow broken and should be rejected
-// by the server
+// MakeBrokenMessage generates deterministically malformed protocol messages for chaos testing.
+// Returns various types of invalid messages that should trigger ERROR responses from the server.
 func MakeBrokenMessage() string {
 	counter := atomic.AddInt64(&messageCounter, 1)
 

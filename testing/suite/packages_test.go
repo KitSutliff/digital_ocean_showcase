@@ -5,6 +5,8 @@ import (
 	"testing"
 )
 
+// TestAllPackages_Named verifies that the Named method returns singleton instances
+// for the same package name to maintain referential integrity across the test graph.
 func TestAllPackages_Named(t *testing.T) {
 	allPackages := AllPackages{}
 
@@ -15,6 +17,8 @@ func TestAllPackages_Named(t *testing.T) {
 	}
 }
 
+// TestAddingDependencies validates that package dependency relationships are correctly
+// established and maintained through the AddDependency method.
 func TestAddingDependencies(t *testing.T) {
 	allPackages := AllPackages{}
 
@@ -45,6 +49,8 @@ func TestAddingDependencies(t *testing.T) {
 	}
 }
 
+// TestTokeniseLine verifies parsing of dependency specification lines from the embedded
+// test data format, including both packages with and without dependencies.
 func TestTokeniseLine(t *testing.T) {
 	lineWithoutDependencies := "a:"
 	expectedTokens := []string{"a"}
@@ -80,6 +86,8 @@ func TestTokeniseLine(t *testing.T) {
 	}
 }
 
+// TestTokensToPackage validates conversion of parsed tokens into Package objects
+// with proper dependency relationship establishment.
 func TestTokensToPackage(t *testing.T) {
 	allPackages := &AllPackages{}
 
@@ -130,6 +138,8 @@ func TestTokensToPackage(t *testing.T) {
 
 }
 
+// TestTextToPackages verifies parsing of multi-line dependency specification text
+// into a complete package graph with referential integrity.
 func TestTextToPackages(t *testing.T) {
 	allPackages := &AllPackages{}
 
@@ -194,6 +204,8 @@ b: c z
 	}
 }
 
+// TestParseBrewPackages validates parsing of the embedded Homebrew package data
+// used for comprehensive integration testing scenarios.
 func TestParseBrewPackages(t *testing.T) {
 	allPackages := &AllPackages{}
 	allPackages, err := BrewToPackages(allPackages)
@@ -206,6 +218,8 @@ func TestParseBrewPackages(t *testing.T) {
 	}
 }
 
+// TestSegmentListPackages verifies partitioning of package lists for concurrent
+// client distribution during multi-threaded test execution.
 func TestSegmentListPackages(t *testing.T) {
 	allPackages := &AllPackages{}
 

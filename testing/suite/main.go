@@ -1,3 +1,6 @@
+// Package main provides the test harness entry point for package indexer integration testing.
+// This comprehensive test suite validates server behavior under concurrent load using real
+// package dependency data, including chaos testing and failure injection scenarios.
 package main
 
 import (
@@ -9,6 +12,8 @@ import (
 	"os"
 )
 
+// main initializes the test harness with command-line configuration and executes
+// the comprehensive test suite against the package indexer server.
 func main() {
 	log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lmicroseconds)
 	host := flag.String("host", "127.0.0.1", "The host of your server")
