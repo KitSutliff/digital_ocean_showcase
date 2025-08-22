@@ -7,7 +7,6 @@ import (
 	"testing"
 )
 
-// Test constants to avoid magic numbers and ensure determinism
 const (
 	testInvalidHost = "nonexistent.invalid" // RFC 2606 reserved TLD ensures DNS failure
 )
