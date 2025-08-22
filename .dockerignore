@@ -1,5 +1,4 @@
 .git
-development/
 testing/
 challenge/
 coverage*
@@ -8,5 +7,4 @@ coverage.*
 *.html
 package-indexer
 do-package-tree_*
-communications/
 README.md

@@ -21,6 +21,7 @@ vendor/
 
 # IDE files
 .vscode/
+.cursor/
 .idea/
 *.swp
 
@@ -28,5 +29,5 @@ vendor/
 .DS_Store
 Thumbs.db
 
-# Development artifacts
-communications/
+# Development artifacts  
+# (none currently)
