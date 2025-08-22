@@ -12,6 +12,7 @@ const (
 	testInvalidHost = "nonexistent.invalid" // RFC 2606 reserved TLD ensures DNS failure
 )
 
+// respondWith accepts a single connection and sends the specified response code
 func respondWith(t *testing.T, server net.Listener, responseCode string) {
 	conn, err := server.Accept()
 	if err != nil {
