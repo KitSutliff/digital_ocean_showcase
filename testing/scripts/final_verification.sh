@@ -11,13 +11,13 @@ make -C ../.. clean
 
 # Run all tests with race detection
 echo "TESTING: Running unit tests with race detection..."
-pushd ../.. && go test -race ./internal/... && popd
+(cd ../.. && go test -race ./internal/...)
 
 echo "TESTING: Running integration tests..."
-pushd ../.. && go test -race ./testing/integration/... && popd
+(cd ../.. && go test -race ./testing/integration/...)
 
 echo "COVERAGE: Running tests with coverage..."
-pushd ../.. && go test -cover ./... && popd
+(cd ../.. && go test -cover ./...)
 
 # Build the binary
 echo "BUILD: Building server binary..."
@@ -65,9 +65,8 @@ echo "READY: Project is ready for submission!"
 echo ""
 echo "STATS: Project Statistics:"
 echo "====================="
-pushd ../.. >/dev/null
-echo "Go files: $(find . -name '*.go' | wc -l)"
-echo "Total lines of code: $(find . -name '*.go' -exec wc -l {} + | awk '{s+=$1} END {print s}')"
-echo "Test files: $(find . -name '*_test.go' | wc -l)"
-echo "Test coverage: $(go test -cover ./... 2>/dev/null | grep -E 'coverage: [0-9.]+%' | tail -1 | awk '{print $2}')"
-popd >/dev/null
+(cd ../.. >/dev/null && \
+  echo "Go files: $(find . -name '*.go' | wc -l)" && \
+  echo "Total lines of code: $(find . -name '*.go' -exec wc -l {} + | awk '{s+=$1} END {print s}')" && \
+  echo "Test files: $(find . -name '*_test.go' | wc -l)" && \
+  echo "Test coverage: $(go test -cover ./... 2>/dev/null | grep -E 'coverage: [0-9.]+%' | tail -1 | awk '{print $2}')")

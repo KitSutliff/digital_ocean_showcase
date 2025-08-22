@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const minUptimeProgress = 1 * time.Millisecond
+
 // assertMetrics compares the actual metrics snapshot against expected values.
 func assertMetrics(t *testing.T, actual, expected MetricsSnapshot) {
 	t.Helper()
@@ -144,6 +146,8 @@ func TestMetrics_MultipleSnapshots(t *testing.T) {
 	m.IncrementCommands()
 
 	// Second snapshot
+	// Ensure wall clock progresses to avoid flaky uptime comparisons
+	time.Sleep(minUptimeProgress)
 	snapshot2 := m.GetSnapshot()
 
 	// Verify snapshots are independent
